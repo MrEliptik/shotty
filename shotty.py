@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QObject
 from PyQt5.QtGui import QImage, QPixmap
 import sys
 import mss
@@ -7,12 +7,27 @@ import numpy as np
 import signal
 import cv2 as cv
 
+def MouseMoveFilter(QObject):
+        def eventFilter(self, obj, event):
+            if event.type() == QtCore.QEvent.MouseMove:
+			    # Hide the old tooltip, so that it can move
+                QtGui.QToolTip.hideText()
+                QtGui.QToolTip.showText(event.globalPos(), '%04f, %04f' %
+                                        (event.globalX(), event.globalY()), obj)
+                print(event.globalX(), event.globalY())
+                
+                return False
+            # Call Base Class Method to Continue Normal Event Processing
+            return super(MouseMoveFilter, self).eventFilter(obj, event)
+
+
 class Shotty(QWidget):
     def __init__(self, im):
         super().__init__()
         print('Removing alpha..')
-        self.im = im[:,:,:3].copy()
+        self.im = im[:, :, :3].copy()
         self.initUI()
+        self.setTextLabelPosition(0, 0)
         self.setMouseTracking(True)
 
     def initUI(self):
@@ -20,31 +35,46 @@ class Shotty(QWidget):
         # Create widget
         self.label = QLabel(self)
         self.l_mousePos = QLabel(self)
-        h, w, c = self.im.shape
-        print(h, w ,c)
+        self.l_mousePos.resize(200, 40)
 
-        
-        self.im = self.im[:,:,:3].copy()
+        pixmap = QPixmap('white-round-md.png')
+        self.l_mousePos.setPixmap(pixmap)
+        h, w, c = self.im.shape
+        print(h, w, c)
+
+        self.im = self.im[:, :, :3].copy()
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
 
-        
         print(self.im.strides[0])
         qImg = QImage(self.im, w, h, QImage.Format_RGB888).rgbSwapped()
         pixmap = QPixmap.fromImage(qImg)
         self.label.setPixmap(pixmap)
         self.label.resize(pixmap.width(), pixmap.height())
 
-        self.label.keyPressEvent = app.quit()      
-
-        self.label.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
+        #self.keyPressEvent = app.quit()
+        self.setWindowFlags(
+            Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
         monitor = QDesktopWidget().screenGeometry(1)
-        self.label.move(monitor.left(), monitor.top())
-        self.label.showFullScreen()
-    
+        self.move(monitor.left(), monitor.top())
+        self.showFullScreen()
+
     def mouseMoveEvent(self, event):
-        print(event.x(), event.y())
-        self.l_mousePos.setText('(%dpx, %dpx)' % (event.x(), event.y()))
+        #print(event.x(), event.y())
+        self.setTextLabelPosition(event.x(), event.y())
+        QWidget.mouseMoveEvent(self, event)
+
+    def mousePressEvent(self, event):
+        print('Press: {}'.format(event.pos()))
+
+    def mouseReleaseEvent(self, event):
+        print('Release: {}'.format(event.pos()))  
+
+    def setTextLabelPosition (self, x, y):
+        self.l_mousePos.x, self.l_mousePos.y = x, y
+        print(self.l_mousePos.x, self.l_mousePos.y)
+        self.l_mousePos.setText('Please click on screen ( %d : %d )' % (self.l_mousePos.x, self.l_mousePos.y))
+
 
 def mask_image(imgdata, imgtype='jpg', size=64):
     """Return a ``QPixmap`` from *imgdata* masked with a smooth circle.
