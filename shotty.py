@@ -1,11 +1,12 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget
 from PyQt5.QtCore import Qt, QObject, QTimer
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen
 import sys
 import mss
 import numpy as np
 import signal
 import cv2 as cv
+
 
 def MouseMoveFilter(QObject):
         def eventFilter(self, obj, e):
@@ -20,6 +21,36 @@ def MouseMoveFilter(QObject):
             # Call Base Class Method to Continue Normal Event Processing
             return super(MouseMoveFilter, self).eventFilter(obj, e)
 
+class overlay(QWidget):    
+    def __init__(self, parent=None):        
+        super(overlay, self).__init__(parent)
+
+        palette = QPalette(self.palette())
+        palette.setColor(palette.Background, Qt.transparent)
+
+        self.setPalette(palette)
+
+        self.x1 = 0
+        self.x2 = 0
+        self.y1 = 0
+        self.y2 = 0
+
+    def setCoords(self, x1, y1, x2, y2):
+        self.x1 = x1
+        self.x2 = x2
+        self.y1 = y1
+        self.y2 = y2
+
+    def paintEvent(self, event):     
+        print('paint: ({},{}) ({},{})'.format(self.x1, self.y1, self.x2, self.y2))    
+        painter = QPainter()
+        painter.begin(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(QPen(Qt.black, 1, Qt.SolidLine))
+        painter.setBrush(QBrush(Qt.green, Qt.DiagCrossPattern))
+        painter.drawRect(self.x1, self.y1, self.x2-self.x1, self.y2-self.y1)
+        #painter.fillRect(event.rect(), QBrush(QColor(255, 255, 255, 127)))
+        #painter.setPen(QPen(Qt.NoPen))  
 
 class Shotty(QWidget):
     def __init__(self, im):
@@ -29,28 +60,37 @@ class Shotty(QWidget):
         self.initUI()
         self.setTextLabelPosition(0, 0)
         self.setMouseTracking(True)
+        self.rect_x1 = 0
+        self.rect_y1 = 0
+        self.rect_x2 = 0
+        self.rect_y2 = 0
+        self.pressed = False
 
     def initUI(self):
         QApplication.setOverrideCursor(Qt.CrossCursor)
         # Create widget
-        #self.label = QLabel(self)
+        self.label = QLabel(self)
         self.l_mousePos = QLabel(self)
         self.l_mousePos.resize(200, 100)
 
+
         pixmap = QPixmap('white-round-md.png')
-        #self.l_mousePos.setPixmap(pixmap)
+        self.l_mousePos.setPixmap(pixmap)
         h, w, c = self.im.shape
-        print(h, w, c)
 
         self.im = self.im[:, :, :3].copy()
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
 
-        print(self.im.strides[0])
         qImg = QImage(self.im, w, h, QImage.Format_RGB888).rgbSwapped()
         pixmap = QPixmap.fromImage(qImg)
-        #self.label.setPixmap(pixmap)
-        #self.label.resize(pixmap.width(), pixmap.height())
+        self.label.setPixmap(pixmap)
+        self.label.resize(pixmap.width(), pixmap.height())
+
+        self.overlay = overlay(self.label)
+        self.overlay.resize(pixmap.width(), pixmap.height())
+
+        print("Overlay size: {}, {}".format(self.overlay.frameGeometry().width(), self.overlay.frameGeometry().height()))
 
         self.setWindowFlags(
             Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
@@ -67,18 +107,33 @@ class Shotty(QWidget):
         #print(e.x(), e.y())
         self.setTextLabelPosition(e.x(), e.y())
         QWidget.mouseMoveEvent(self, e)
+        print(self.pressed)
+        if self.pressed:
+            print('Event press coords: ({},{}) ({},{})'.format(self.rect_x1, self.rect_y1, e.x(), e.y()))
+            self.overlay.setCoords(self.rect_x1, self.rect_y1, e.x(), e.y())
+            self.overlay.update()
 
     def mousePressEvent(self, e):
         print('Press: {}'.format(e.pos()))
+        self.pressed = True
+        print('Press: {}'.format(self.pressed))
+        self.rect_x1 = e.x()
+        self.rect_y1 = e.y()
 
     def mouseReleaseEvent(self, e):
         print('Release: {}'.format(e.pos()))  
+        self.pressed = False
+        self.rect_x1 = 0
+        self.rect_y1 = 0
+        self.rect_x2 = 0
+        self.rect_y2 = 0
+        self.overlay.setCoords(self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
+        self.overlay.update()
 
     def setTextLabelPosition (self, x, y):
-        #self.l_mousePos.x, self.l_mousePos.y = x, y
-        self.l_mousePos.move(x, y)
-        print(self.l_mousePos.x, self.l_mousePos.y)
-        self.l_mousePos.setText('Mouse ( %d : %d )' % (self.l_mousePos.x, self.l_mousePos.y))
+        self.l_mousePos.move(x + 20, y)
+        print(self.l_mousePos.x(), self.l_mousePos.y())
+        #self.l_mousePos.setText('Mouse ( %d : %d )' % (self.l_mousePos.x(), self.l_mousePos.y()))
 
 
 def mask_image(imgdata, imgtype='jpg', size=64):
