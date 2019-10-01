@@ -33,12 +33,12 @@ class Shotty(QWidget):
     def initUI(self):
         QApplication.setOverrideCursor(Qt.CrossCursor)
         # Create widget
-        self.label = QLabel(self)
+        #self.label = QLabel(self)
         self.l_mousePos = QLabel(self)
-        self.l_mousePos.resize(200, 40)
+        self.l_mousePos.resize(200, 100)
 
         pixmap = QPixmap('white-round-md.png')
-        self.l_mousePos.setPixmap(pixmap)
+        #self.l_mousePos.setPixmap(pixmap)
         h, w, c = self.im.shape
         print(h, w, c)
 
@@ -49,10 +49,9 @@ class Shotty(QWidget):
         print(self.im.strides[0])
         qImg = QImage(self.im, w, h, QImage.Format_RGB888).rgbSwapped()
         pixmap = QPixmap.fromImage(qImg)
-        self.label.setPixmap(pixmap)
-        self.label.resize(pixmap.width(), pixmap.height())
+        #self.label.setPixmap(pixmap)
+        #self.label.resize(pixmap.width(), pixmap.height())
 
-        #self.keyPressEvent = app.quit()
         self.setWindowFlags(
             Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
         monitor = QDesktopWidget().screenGeometry(1)
@@ -76,9 +75,10 @@ class Shotty(QWidget):
         print('Release: {}'.format(e.pos()))  
 
     def setTextLabelPosition (self, x, y):
-        self.l_mousePos.x, self.l_mousePos.y = x, y
+        #self.l_mousePos.x, self.l_mousePos.y = x, y
+        self.l_mousePos.move(x, y)
         print(self.l_mousePos.x, self.l_mousePos.y)
-        self.l_mousePos.setText('Please click on screen ( %d : %d )' % (self.l_mousePos.x, self.l_mousePos.y))
+        self.l_mousePos.setText('Mouse ( %d : %d )' % (self.l_mousePos.x, self.l_mousePos.y))
 
 
 def mask_image(imgdata, imgtype='jpg', size=64):
