@@ -35,11 +35,18 @@ class overlay(QWidget):
         self.y1 = 0
         self.y2 = 0
 
+        self.line_x = 0
+        self.line_y = 0
+
     def setCoords(self, x1, y1, x2, y2):
         self.x1 = x1
         self.x2 = x2
         self.y1 = y1
         self.y2 = y2
+
+    def setLineCoords(self, line_x, line_y):
+        self.line_x = line_x
+        self.line_y = line_y
 
     def paintEvent(self, event):     
         print('paint: ({},{}) ({},{})'.format(self.x1, self.y1, self.x2, self.y2))    
@@ -49,8 +56,7 @@ class overlay(QWidget):
         painter.setPen(QPen(Qt.black, 1, Qt.SolidLine))
         painter.setBrush(QBrush(Qt.green, Qt.DiagCrossPattern))
         painter.drawRect(self.x1, self.y1, self.x2-self.x1, self.y2-self.y1)
-        #painter.fillRect(event.rect(), QBrush(QColor(255, 255, 255, 127)))
-        #painter.setPen(QPen(Qt.NoPen))  
+        painter.drawLine(20, self.line_y, 20, self.line_y) 
 
 class Shotty(QWidget):
     def __init__(self, im):
@@ -107,11 +113,12 @@ class Shotty(QWidget):
         #print(e.x(), e.y())
         self.setTextLabelPosition(e.x(), e.y())
         QWidget.mouseMoveEvent(self, e)
+        self.overlay.setLineCoords(e.x(), e.y())
         print(self.pressed)
         if self.pressed:
             print('Event press coords: ({},{}) ({},{})'.format(self.rect_x1, self.rect_y1, e.x(), e.y()))
             self.overlay.setCoords(self.rect_x1, self.rect_y1, e.x(), e.y())
-            self.overlay.update()
+        self.overlay.update()
 
     def mousePressEvent(self, e):
         print('Press: {}'.format(e.pos()))
