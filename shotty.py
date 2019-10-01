@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget
-from PyQt5.QtCore import Qt, QObject
+from PyQt5.QtCore import Qt, QObject, QTimer
 from PyQt5.QtGui import QImage, QPixmap
 import sys
 import mss
@@ -8,17 +8,17 @@ import signal
 import cv2 as cv
 
 def MouseMoveFilter(QObject):
-        def eventFilter(self, obj, event):
-            if event.type() == QtCore.QEvent.MouseMove:
+        def eventFilter(self, obj, e):
+            if e.type() == QtCore.QEvent.MouseMove:
 			    # Hide the old tooltip, so that it can move
                 QtGui.QToolTip.hideText()
-                QtGui.QToolTip.showText(event.globalPos(), '%04f, %04f' %
-                                        (event.globalX(), event.globalY()), obj)
-                print(event.globalX(), event.globalY())
+                QtGui.QToolTip.showText(e.globalPos(), '%04f, %04f' %
+                                        (e.globalX(), e.globalY()), obj)
+                print(e.globalX(), e.globalY())
                 
                 return False
             # Call Base Class Method to Continue Normal Event Processing
-            return super(MouseMoveFilter, self).eventFilter(obj, event)
+            return super(MouseMoveFilter, self).eventFilter(obj, e)
 
 
 class Shotty(QWidget):
@@ -59,16 +59,21 @@ class Shotty(QWidget):
         self.move(monitor.left(), monitor.top())
         self.showFullScreen()
 
-    def mouseMoveEvent(self, event):
-        #print(event.x(), event.y())
-        self.setTextLabelPosition(event.x(), event.y())
-        QWidget.mouseMoveEvent(self, event)
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Escape:
+            self.close()
+            sys.exit()
 
-    def mousePressEvent(self, event):
-        print('Press: {}'.format(event.pos()))
+    def mouseMoveEvent(self, e):
+        #print(e.x(), e.y())
+        self.setTextLabelPosition(e.x(), e.y())
+        QWidget.mouseMoveEvent(self, e)
 
-    def mouseReleaseEvent(self, event):
-        print('Release: {}'.format(event.pos()))  
+    def mousePressEvent(self, e):
+        print('Press: {}'.format(e.pos()))
+
+    def mouseReleaseEvent(self, e):
+        print('Release: {}'.format(e.pos()))  
 
     def setTextLabelPosition (self, x, y):
         self.l_mousePos.x, self.l_mousePos.y = x, y
@@ -136,6 +141,7 @@ def main():
     '''
     app = QApplication(sys.argv)
     shotty = Shotty(im)
+
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
