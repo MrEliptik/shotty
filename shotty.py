@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget
-from PyQt5.QtCore import Qt, QObject, QTimer
+from PyQt5.QtCore import Qt, QObject, QTimer, QRect
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen
 import sys
 import mss
@@ -72,6 +72,8 @@ class Shotty(QWidget):
         self.rect_y1 = 0
         self.rect_x2 = 0
         self.rect_y2 = 0
+        self.line_x = 0
+        self.line_y = 0
         self.pressed = False
 
     def setMouseTracking(self, flag):
@@ -94,7 +96,7 @@ class Shotty(QWidget):
 
 
         pixmap = QPixmap('white-round-md.png')
-        self.l_mousePos.setPixmap(pixmap)
+        #self.l_mousePos.setPixmap(pixmap)
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
 
@@ -120,6 +122,31 @@ class Shotty(QWidget):
             sys.exit()
 
     def mouseMoveEvent(self, e):
+        self.line_x = e.x()
+        self.line_y = e.y()
+
+        zoom = self.im[e.y()-10:e.y()+10, e.x()-10:e.x()+10, :].copy()
+        h, w, _ = zoom.shape
+        #qZoom = QImage(zoom, w, h, QImage.Format_RGB888).rgbSwapped()
+        #qPixZoom = QPixmap.fromImage(qZoom)
+        qPixZoom = mask_image(zoom)
+        qPixZoom = qPixZoom.scaled(160, 160, Qt.KeepAspectRatio)
+
+        painter = QPainter()
+        painter.begin(qPixZoom)
+        painter.setPen(QPen(Qt.green, 4, Qt.DotLine))
+        # Horizontal line
+        painter.drawLine(0, 80, 65, 80) 
+        painter.drawLine(95, 80, 160, 80) 
+        # Vertical line
+        painter.drawLine(80, 0, 80, 65)
+        painter.drawLine(80, 95, 80, 160)
+        painter.end()
+        self.l_mousePos.setPixmap(qPixZoom)
+        self.l_mousePos.resize(160, 160)
+
+        
+
         #print(e.x(), e.y())
         self.setTextLabelPosition(e.x(), e.y())
         QWidget.mouseMoveEvent(self, e)
@@ -155,11 +182,6 @@ class Shotty(QWidget):
 
     def saveScreenShot(self, x1, y1, x2, y2):
         crop_im = self.im[y1:y2, x1:x2, :].copy()
-        '''
-        cv.imshow('crop', crop_im)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-        '''
         h, w, _ = crop_im.shape
         qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
         qScreen.save('screen.png')
@@ -173,7 +195,9 @@ def mask_image(imgdata, imgtype='jpg', size=64):
 
     """
     # Load image and convert to 32-bit ARGB (adds an alpha channel):
-    image = QImage.fromData(imgdata, imgtype)
+    #image = QImage.fromData(imgdata, imgtype)
+    h, w, _ = imgdata.shape
+    image = QImage(imgdata, w, h, QImage.Format_RGB888).rgbSwapped()
     image.convertToFormat(QImage.Format_ARGB32)
 
     # Crop image to a square:
@@ -203,11 +227,11 @@ def mask_image(imgdata, imgtype='jpg', size=64):
 
     # Convert the image to a pixmap and rescale it.  Take pixel ratio into
     # account to get a sharp image on retina displays:
-    pr = QWindow().devicePixelRatio()
+    #pr = QWindow().devicePixelRatio()
     pm = QPixmap.fromImage(out_img)
-    pm.setDevicePixelRatio(pr)
-    size *= pr
-    pm = pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    #pm.setDevicePixelRatio(pr)
+    #size *= pr
+    #pm = pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     return pm
 
@@ -217,11 +241,7 @@ def main():
     with mss.mss() as sct:
         # Get raw pixels from the screen, save it to a Numpy array
         im = np.array(sct.grab(sct.monitors[1]))
-    '''
-    cv.imshow("screenshot", im)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-    '''
+
     app = QApplication(sys.argv)
     shotty = Shotty(im)
 
