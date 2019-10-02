@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget
-from PyQt5.QtCore import Qt, QObject, QTimer, QRect
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu
+from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen
 import sys
 import mss
@@ -94,6 +94,8 @@ class Shotty(QWidget):
         self.l_mousePos = QLabel(self)
         self.l_mousePos.resize(200, 100)
 
+        self.label.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.label.customContextMenuRequested.connect(self.showMenu)
 
         pixmap = QPixmap('white-round-md.png')
         #self.l_mousePos.setPixmap(pixmap)
@@ -158,22 +160,27 @@ class Shotty(QWidget):
         self.overlay.update()
 
     def mousePressEvent(self, e):
-        print('Press: {}'.format(e.pos()))
-        self.pressed = True
-        print('Press: {}'.format(self.pressed))
-        self.rect_x1 = e.x()
-        self.rect_y1 = e.y()
+        if e.button() == Qt.LeftButton:
+            print('Press: {}'.format(e.pos()))
+            self.pressed = True
+            print('Press: {}'.format(self.pressed))
+            self.rect_x1 = e.x()
+            self.rect_y1 = e.y()
 
     def mouseReleaseEvent(self, e):
-        print('Release: {}'.format(e.pos()))  
-        self.saveScreenShot(self.rect_x1, self.rect_y1, e.x(), e.y())
-        self.pressed = False
-        self.rect_x1 = 0
-        self.rect_y1 = 0
-        self.rect_x2 = 0
-        self.rect_y2 = 0
-        self.overlay.setCoords(self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
-        self.overlay.update()
+        if e.button() == Qt.LeftButton:
+            print('Release: {}'.format(e.pos()))  
+
+            self.showMenu(e)
+
+            #self.saveScreenShot(self.rect_x1, self.rect_y1, e.x(), e.y())
+            self.pressed = False
+            self.rect_x1 = 0
+            self.rect_y1 = 0
+            self.rect_x2 = 0
+            self.rect_y2 = 0
+            self.overlay.setCoords(self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
+            self.overlay.update()
 
     def setTextLabelPosition (self, x, y):
         self.l_mousePos.move(x + 20, y)
@@ -185,6 +192,22 @@ class Shotty(QWidget):
         h, w, _ = crop_im.shape
         qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
         qScreen.save('screen.png')
+
+    def showMenu(self, e):
+        menu = QMenu()
+        save_action = menu.addAction("Save")
+        cancel_action = menu.addAction("Cancel")
+        exit_action = menu.addAction("Exit")
+        action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
+        if action == save_action:
+            self.saveScreenShot(self.rect_x1, self.rect_y1, e.x(), e.y())
+            self.close()
+            sys.exit()
+        elif action == cancel_action:
+            return 
+        elif action == exit_action:
+            self.close()
+            sys.exit()
 
 def mask_image(imgdata, imgtype='jpg', size=64):
     """Return a ``QPixmap`` from *imgdata* masked with a smooth circle.
