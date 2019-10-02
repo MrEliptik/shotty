@@ -56,7 +56,9 @@ class overlay(QWidget):
         painter.setPen(QPen(Qt.black, 1, Qt.SolidLine))
         painter.setBrush(QBrush(Qt.green, Qt.DiagCrossPattern))
         painter.drawRect(self.x1, self.y1, self.x2-self.x1, self.y2-self.y1)
-        painter.drawLine(20, self.line_y, 20, self.line_y) 
+        painter.setPen(QPen(Qt.green, 1, Qt.DotLine))
+        painter.drawLine(0, self.line_y, self.width(), self.line_y) 
+        painter.drawLine(self.line_x, 0, self.line_x, self.height())
 
 class Shotty(QWidget):
     def __init__(self, im):
@@ -72,6 +74,17 @@ class Shotty(QWidget):
         self.rect_y2 = 0
         self.pressed = False
 
+    def setMouseTracking(self, flag):
+        def recursive_set(parent):
+            for child in parent.findChildren(QObject):
+                try:
+                    child.setMouseTracking(flag)
+                except:
+                    pass
+                recursive_set(child)
+        QWidget.setMouseTracking(self, flag)
+        recursive_set(self)
+
     def initUI(self):
         QApplication.setOverrideCursor(Qt.CrossCursor)
         # Create widget
@@ -82,9 +95,6 @@ class Shotty(QWidget):
 
         pixmap = QPixmap('white-round-md.png')
         self.l_mousePos.setPixmap(pixmap)
-        h, w, c = self.im.shape
-
-        self.im = self.im[:, :, :3].copy()
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
 
@@ -100,7 +110,7 @@ class Shotty(QWidget):
 
         self.setWindowFlags(
             Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
-        monitor = QDesktopWidget().screenGeometry(1)
+        monitor = QDesktopWidget().screenGeometry(0)
         self.move(monitor.left(), monitor.top())
         self.showFullScreen()
 
@@ -129,6 +139,7 @@ class Shotty(QWidget):
 
     def mouseReleaseEvent(self, e):
         print('Release: {}'.format(e.pos()))  
+        self.saveScreenShot(self.rect_x1, self.rect_y1, e.x(), e.y())
         self.pressed = False
         self.rect_x1 = 0
         self.rect_y1 = 0
@@ -142,6 +153,16 @@ class Shotty(QWidget):
         print(self.l_mousePos.x(), self.l_mousePos.y())
         #self.l_mousePos.setText('Mouse ( %d : %d )' % (self.l_mousePos.x(), self.l_mousePos.y()))
 
+    def saveScreenShot(self, x1, y1, x2, y2):
+        crop_im = self.im[y1:y2, x1:x2, :].copy()
+        '''
+        cv.imshow('crop', crop_im)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
+        '''
+        h, w, _ = crop_im.shape
+        qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
+        qScreen.save('screen.png')
 
 def mask_image(imgdata, imgtype='jpg', size=64):
     """Return a ``QPixmap`` from *imgdata* masked with a smooth circle.
