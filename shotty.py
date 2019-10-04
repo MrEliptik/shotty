@@ -7,6 +7,9 @@ import numpy as np
 import signal
 import cv2 as cv
 
+import pyxhook
+import time
+
 
 def MouseMoveFilter(QObject):
     def eventFilter(self, obj, e):
@@ -96,7 +99,7 @@ class Shotty(QWidget):
         self.l_mousePos.resize(200, 100)
 
         self.label.setContextMenuPolicy(Qt.CustomContextMenu)
-        # self.label.customContextMenuRequested.connect(self.showMenu)
+        self.label.customContextMenuRequested.connect(self.showMenu)
 
         pixmap = QPixmap('white-round-md.png')
         # self.l_mousePos.setPixmap(pixmap)
@@ -165,7 +168,7 @@ class Shotty(QWidget):
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton:
-            self.showMenu('cropped', e)
+            self.showMenu(e, 'cropped')
             self.pressed = False
             self.rect_x1 = 0
             self.rect_y1 = 0
@@ -174,8 +177,10 @@ class Shotty(QWidget):
             self.overlay.setCoords(
                 self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
             self.overlay.update()
+        '''
         if e.button() == Qt.RightButton:
-            self.showMenu('fullscreen', e)
+            self.showMenu(e, 'fullscreen')
+        '''
 
     def setTextLabelPosition(self, x, y):
         self.l_mousePos.move(x + 20, y)
@@ -200,9 +205,9 @@ class Shotty(QWidget):
             crop_im = self.im[y1:y2, x1:x2, :].copy()
             h, w, _ = crop_im.shape
             qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
-        QApplication.clipboard().setPixmap(QPixmap.fromImage(qScreen))
+        QApplication.clipboard().setImage(qScreen)
 
-    def showMenu(self, type, e):
+    def showMenu(self, e, type='fullscreen'):
         menu = QMenu()
         if type == 'cropped':
 
@@ -210,7 +215,7 @@ class Shotty(QWidget):
                 QAction(QIcon("icons/save.png"), "Save region", self))
             saveAs_crop_action = menu.addAction(
                 QAction(QIcon("icons/save-as.png"), "Save region as..", self))
-            clipboard_full_action = menu.addAction(
+            clipboard_crop_action = menu.addAction(
                 QAction(QIcon("icons/copy-clipboard.png"), "Copy region to clipboard", self))
             cancel_action = menu.addAction(
                 QAction(QIcon("icons/close-window.png"), "Cancel", self))
@@ -243,7 +248,7 @@ class Shotty(QWidget):
             saveAs_full_action = menu.addAction(
                 QAction(QIcon("icons/save.png"), "Save as..", self))
             clipboard_full_action = menu.addAction(
-                QIcon("icons/copy-clipboard.png"), "Copy to clipboard", self)
+                QAction(QIcon("icons/copy-clipboard.png"), "Copy to clipboard", self))
             cancel_action = menu.addAction(
                 QAction(QIcon("icons/close-window.png"), "Cancel", self))
             exit_action = menu.addAction(
@@ -345,9 +350,32 @@ def mask_image(imgdata, imgtype='jpg', size=64):
 
     return pm
 
+# This function is called every time a key is presssed
+def kbevent(event):
+    global running
+    # print key info
+    print(event)
+
+    # If the ascii value matches spacebar, terminate the while loop
+    if event.Ascii == 32:
+        running = False
 
 def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    # Create hookmanager
+    hookman = pyxhook.HookManager()
+    # Define our callback to fire when a key is pressed down
+    hookman.KeyDown = kbevent
+    # Hook the keyboard
+    hookman.HookKeyboard()
+    # Start our listener
+    hookman.start()
+
+    # Create a loop to keep the application running
+    running = True
+    while running:
+        time.sleep(0.1)
 
     with mss.mss() as sct:
         # Get raw pixels from the screen, save it to a Numpy array
@@ -358,6 +386,8 @@ def main():
 
     sys.exit(app.exec_())
 
+    # Close the listener when we are done
+    hookman.cancel()
 
 if __name__ == "__main__":
     main()
