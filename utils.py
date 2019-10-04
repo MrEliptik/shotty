@@ -1,3 +1,4 @@
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction
 from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 
@@ -49,3 +50,14 @@ def mask_image(imgdata, imgtype='jpg', size=64):
     # pm = pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     return pm
+
+def setMouseTracking(self, flag):
+    def recursive_set(parent):
+        for child in parent.findChildren(QObject):
+            try:
+                child.setMouseTracking(flag)
+            except:
+                pass
+            recursive_set(child)
+    QWidget.setMouseTracking(self, flag)
+    recursive_set(self)
