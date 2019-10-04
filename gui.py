@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 import numpy as np
 import sys
-from utils import mask_image
+from utils import mask_image, setMouseTracking
 
 def MouseMoveFilter(QObject):
     def eventFilter(self, obj, e):
@@ -65,7 +65,7 @@ class Shotty(QWidget):
         self.im = im[:, :, :3].copy()
         self.initUI()
         self.setTextLabelPosition(0, 0)
-        self.setMouseTracking(True)
+        #setMouseTracking(self, True)
         self.rect_x1 = 0
         self.rect_y1 = 0
         self.rect_x2 = 0
@@ -73,17 +73,6 @@ class Shotty(QWidget):
         self.line_x = 0
         self.line_y = 0
         self.pressed = False
-
-    def setMouseTracking(self, flag):
-        def recursive_set(parent):
-            for child in parent.findChildren(QObject):
-                try:
-                    child.setMouseTracking(flag)
-                except:
-                    pass
-                recursive_set(child)
-        QWidget.setMouseTracking(self, flag)
-        recursive_set(self)
 
     def initUI(self):
         QApplication.setOverrideCursor(Qt.CrossCursor)
@@ -93,10 +82,8 @@ class Shotty(QWidget):
         self.l_mousePos.resize(200, 100)
 
         self.label.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.label.customContextMenuRequested.connect(self.showMenu)
+        self.label.customContextMenuRequested.connect(self.showFullscreenshotMenu)
 
-        pixmap = QPixmap('white-round-md.png')
-        # self.l_mousePos.setPixmap(pixmap)
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
 
@@ -110,6 +97,8 @@ class Shotty(QWidget):
 
         print("Overlay size: {}, {}".format(
             self.overlay.frameGeometry().width(), self.overlay.frameGeometry().height()))
+
+        self.label.setMouseTracking(True)
 
         self.setWindowFlags(
             Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
@@ -128,8 +117,6 @@ class Shotty(QWidget):
 
         zoom = self.im[e.y()-10:e.y()+10, e.x()-10:e.x()+10, :].copy()
         h, w, _ = zoom.shape
-        # qZoom = QImage(zoom, w, h, QImage.Format_RGB888).rgbSwapped()
-        # qPixZoom = QPixmap.fromImage(qZoom)
         qPixZoom = mask_image(zoom)
         qPixZoom = qPixZoom.scaled(160, 160, Qt.KeepAspectRatio)
 
@@ -162,7 +149,7 @@ class Shotty(QWidget):
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton:
-            self.showMenu(e, 'cropped')
+            self.showCroppedMenu(e)
             self.pressed = False
             self.rect_x1 = 0
             self.rect_y1 = 0
@@ -171,10 +158,8 @@ class Shotty(QWidget):
             self.overlay.setCoords(
                 self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
             self.overlay.update()
-        '''
         if e.button() == Qt.RightButton:
-            self.showMenu(e, 'fullscreen')
-        '''
+            self.showFullscreenshotMenu(e)
 
     def setTextLabelPosition(self, x, y):
         self.l_mousePos.move(x + 20, y)
@@ -201,71 +186,75 @@ class Shotty(QWidget):
             qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
         QApplication.clipboard().setImage(qScreen)
 
-    def showMenu(self, e, type='fullscreen'):
+    def showCroppedMenu(self, e):
         menu = QMenu()
-        if type == 'cropped':
+        save_crop_action = menu.addAction(
+            QAction(QIcon("icons/save.png"), "Save region", self))
+        saveAs_crop_action = menu.addAction(
+            QAction(QIcon("icons/save-as.png"), "Save region as..", self))
+        clipboard_crop_action = menu.addAction(
+            QAction(QIcon("icons/copy-clipboard.png"), "Copy region to clipboard", self))
+        cancel_action = menu.addAction(
+            QAction(QIcon("icons/close-window.png"), "Cancel", self))
+        exit_action = menu.addAction(
+            QAction(QIcon("icons/exit.png"), "Exit", self))
+        action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
 
-            save_crop_action = menu.addAction(
-                QAction(QIcon("icons/save.png"), "Save region", self))
-            saveAs_crop_action = menu.addAction(
-                QAction(QIcon("icons/save-as.png"), "Save region as..", self))
-            clipboard_crop_action = menu.addAction(
-                QAction(QIcon("icons/copy-clipboard.png"), "Copy region to clipboard", self))
-            cancel_action = menu.addAction(
-                QAction(QIcon("icons/close-window.png"), "Cancel", self))
-            exit_action = menu.addAction(
-                QAction(QIcon("icons/exit.png"), "Exit", self))
-            action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
-
-            if action == save_crop_action:
-                datetime = QDateTime.currentDateTime()
-                self.saveScreenShot(datetime.toString(),
-                                    self.rect_x1, self.rect_y1, e.x(), e.y())
+        if action == save_crop_action:
+            datetime = QDateTime.currentDateTime()
+            self.saveScreenShot(datetime.toString(),
+                                self.rect_x1, self.rect_y1, e.x(), e.y())
+            self.close()
+            sys.exit()
+        elif action == saveAs_crop_action:
+            datetime = QDateTime.currentDateTime()
+            filename = self.saveFileDialog(datetime.toString())
+            if filename:
+                self.saveScreenShot(
+                    filename, self.rect_x1, self.rect_y1, e.x(), e.y())
                 self.close()
                 sys.exit()
-            if action == saveAs_crop_action:
-                datetime = QDateTime.currentDateTime()
-                filename = self.saveFileDialog(datetime.toString())
-                if filename:
-                    self.saveScreenShot(
-                        filename, self.rect_x1, self.rect_y1, e.x(), e.y())
-                    self.close()
-                    sys.exit()
-            elif action == clipboard_crop_action:
-                self.copyToClipboard(self.rect_x1, self.rect_y1, e.x(), e.y())
-                self.close()
-                sys.exit()
+        elif action == clipboard_crop_action:
+            self.copyToClipboard(self.rect_x1, self.rect_y1, e.x(), e.y())
+            self.close()
+            sys.exit()
+        elif action == cancel_action:
+            return
+        elif action == exit_action:
+            self.close()
+            sys.exit()
 
-        elif type == 'fullscreen':
-            save_full_action = menu.addAction(
-                QAction(QIcon("icons/save.png"), "Save", self))
-            saveAs_full_action = menu.addAction(
-                QAction(QIcon("icons/save.png"), "Save as..", self))
-            clipboard_full_action = menu.addAction(
-                QAction(QIcon("icons/copy-clipboard.png"), "Copy to clipboard", self))
-            cancel_action = menu.addAction(
-                QAction(QIcon("icons/close-window.png"), "Cancel", self))
-            exit_action = menu.addAction(
-                QAction(QIcon("icons/exit.png"), "Exit", self))
-            action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
+    def showFullscreenshotMenu(self, e):
+        menu = QMenu()
+        save_full_action = menu.addAction(
+            QAction(QIcon("icons/save.png"), "Save", self))
+        saveAs_full_action = menu.addAction(
+            QAction(QIcon("icons/save.png"), "Save as..", self))
+        clipboard_full_action = menu.addAction(
+            QAction(QIcon("icons/copy-clipboard.png"), "Copy to clipboard", self))
+        cancel_action = menu.addAction(
+            QAction(QIcon("icons/close-window.png"), "Cancel", self))
+        exit_action = menu.addAction(
+            QAction(QIcon("icons/exit.png"), "Exit", self))
+        action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
 
-            if action == save_full_action:
-                datetime = QDateTime.currentDateTime()
-                self.saveScreenShot(datetime.toString(), -1, -1, -1, -1)
+        if action == save_full_action:
+            datetime = QDateTime.currentDateTime()
+            self.saveScreenShot(datetime.toString(), -1, -1, -1, -1)
+            self.close()
+            sys.exit()
+        elif action == saveAs_full_action:
+            datetime = QDateTime.currentDateTime()
+            filename = self.saveFileDialog(datetime.toString())
+            if filename:
+                self.saveScreenShot(filename, -1, -1, -1, -1)
                 self.close()
                 sys.exit()
-            elif action == saveAs_full_action:
-                datetime = QDateTime.currentDateTime()
-                filename = self.saveFileDialog(datetime.toString())
-                if filename:
-                    self.saveScreenShot(filename, -1, -1, -1, -1)
-                    self.close()
-                    sys.exit()
-            elif action == clipboard_full_action:
-                self.copyToClipboard(-1, -1, -1, -1)
-                self.close()
-                sys.exit()
-        if action == cancel_action:
+        elif action == clipboard_full_action:
+            self.copyToClipboard(-1, -1, -1, -1)
+            self.close()
+            sys.exit()
+        elif action == cancel_action:
             return
         elif action == exit_action:
             self.close()
