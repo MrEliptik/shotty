@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu
-from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint
-from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction
+from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime
+from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 import sys
 import mss
 import numpy as np
@@ -9,20 +9,21 @@ import cv2 as cv
 
 
 def MouseMoveFilter(QObject):
-        def eventFilter(self, obj, e):
-            if e.type() == QtCore.QEvent.MouseMove:
-			    # Hide the old tooltip, so that it can move
-                QtGui.QToolTip.hideText()
-                QtGui.QToolTip.showText(e.globalPos(), '%04f, %04f' %
-                                        (e.globalX(), e.globalY()), obj)
-                print(e.globalX(), e.globalY())
-                
-                return False
-            # Call Base Class Method to Continue Normal Event Processing
-            return super(MouseMoveFilter, self).eventFilter(obj, e)
+    def eventFilter(self, obj, e):
+        if e.type() == QtCore.QEvent.MouseMove:
+                        # Hide the old tooltip, so that it can move
+            QtGui.QToolTip.hideText()
+            QtGui.QToolTip.showText(e.globalPos(), '%04f, %04f' %
+                                    (e.globalX(), e.globalY()), obj)
+            print(e.globalX(), e.globalY())
 
-class overlay(QWidget):    
-    def __init__(self, parent=None):        
+            return False
+        # Call Base Class Method to Continue Normal Event Processing
+        return super(MouseMoveFilter, self).eventFilter(obj, e)
+
+
+class overlay(QWidget):
+    def __init__(self, parent=None):
         super(overlay, self).__init__(parent)
 
         palette = QPalette(self.palette())
@@ -48,8 +49,7 @@ class overlay(QWidget):
         self.line_x = line_x
         self.line_y = line_y
 
-    def paintEvent(self, event):     
-        print('paint: ({},{}) ({},{})'.format(self.x1, self.y1, self.x2, self.y2))    
+    def paintEvent(self, event):
         painter = QPainter()
         painter.begin(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -57,8 +57,9 @@ class overlay(QWidget):
         painter.setBrush(QBrush(Qt.green, Qt.DiagCrossPattern))
         painter.drawRect(self.x1, self.y1, self.x2-self.x1, self.y2-self.y1)
         painter.setPen(QPen(Qt.green, 1, Qt.DotLine))
-        painter.drawLine(0, self.line_y, self.width(), self.line_y) 
+        painter.drawLine(0, self.line_y, self.width(), self.line_y)
         painter.drawLine(self.line_x, 0, self.line_x, self.height())
+
 
 class Shotty(QWidget):
     def __init__(self, im):
@@ -95,10 +96,10 @@ class Shotty(QWidget):
         self.l_mousePos.resize(200, 100)
 
         self.label.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.label.customContextMenuRequested.connect(self.showMenu)
+        # self.label.customContextMenuRequested.connect(self.showMenu)
 
         pixmap = QPixmap('white-round-md.png')
-        #self.l_mousePos.setPixmap(pixmap)
+        # self.l_mousePos.setPixmap(pixmap)
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
 
@@ -110,7 +111,8 @@ class Shotty(QWidget):
         self.overlay = overlay(self.label)
         self.overlay.resize(pixmap.width(), pixmap.height())
 
-        print("Overlay size: {}, {}".format(self.overlay.frameGeometry().width(), self.overlay.frameGeometry().height()))
+        print("Overlay size: {}, {}".format(
+            self.overlay.frameGeometry().width(), self.overlay.frameGeometry().height()))
 
         self.setWindowFlags(
             Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
@@ -138,8 +140,8 @@ class Shotty(QWidget):
         painter.begin(qPixZoom)
         painter.setPen(QPen(Qt.green, 4, Qt.DotLine))
         # Horizontal line
-        painter.drawLine(0, 80, 65, 80) 
-        painter.drawLine(95, 80, 160, 80) 
+        painter.drawLine(0, 80, 65, 80)
+        painter.drawLine(95, 80, 160, 80)
         # Vertical line
         painter.drawLine(80, 0, 80, 65)
         painter.drawLine(80, 95, 80, 160)
@@ -147,67 +149,130 @@ class Shotty(QWidget):
         self.l_mousePos.setPixmap(qPixZoom)
         self.l_mousePos.resize(160, 160)
 
-        
-
         #print(e.x(), e.y())
         self.setTextLabelPosition(e.x(), e.y())
         QWidget.mouseMoveEvent(self, e)
         self.overlay.setLineCoords(e.x(), e.y())
-        print(self.pressed)
         if self.pressed:
-            print('Event press coords: ({},{}) ({},{})'.format(self.rect_x1, self.rect_y1, e.x(), e.y()))
             self.overlay.setCoords(self.rect_x1, self.rect_y1, e.x(), e.y())
         self.overlay.update()
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
-            print('Press: {}'.format(e.pos()))
             self.pressed = True
-            print('Press: {}'.format(self.pressed))
             self.rect_x1 = e.x()
             self.rect_y1 = e.y()
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton:
-            print('Release: {}'.format(e.pos()))  
-
-            self.showMenu(e)
-
-            #self.saveScreenShot(self.rect_x1, self.rect_y1, e.x(), e.y())
+            self.showMenu('cropped', e)
             self.pressed = False
             self.rect_x1 = 0
             self.rect_y1 = 0
             self.rect_x2 = 0
             self.rect_y2 = 0
-            self.overlay.setCoords(self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
+            self.overlay.setCoords(
+                self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
             self.overlay.update()
+        if e.button() == Qt.RightButton:
+            self.showMenu('fullscreen', e)
 
-    def setTextLabelPosition (self, x, y):
+    def setTextLabelPosition(self, x, y):
         self.l_mousePos.move(x + 20, y)
-        print(self.l_mousePos.x(), self.l_mousePos.y())
-        #self.l_mousePos.setText('Mouse ( %d : %d )' % (self.l_mousePos.x(), self.l_mousePos.y()))
 
-    def saveScreenShot(self, x1, y1, x2, y2):
-        crop_im = self.im[y1:y2, x1:x2, :].copy()
-        h, w, _ = crop_im.shape
-        qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
-        qScreen.save('screen.png')
+    def saveScreenShot(self, filename, x1, y1, x2, y2):
+        if x1 == -1:
+            h, w, _ = self.im.shape
+            qScreen = QImage(self.im.copy(), w, h,
+                             QImage.Format_RGB888).rgbSwapped()
+        else:
+            crop_im = self.im[y1:y2, x1:x2, :].copy()
+            h, w, _ = crop_im.shape
+            qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
+        qScreen.save(filename)
 
-    def showMenu(self, e):
+    def copyToClipboard(self, x1, y1, x2, y2):
+        if x1 == -1:
+            h, w, _ = self.im.shape
+            qScreen = QImage(self.im.copy(), w, h,
+                             QImage.Format_RGB888).rgbSwapped()
+        else:
+            crop_im = self.im[y1:y2, x1:x2, :].copy()
+            h, w, _ = crop_im.shape
+            qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
+        QApplication.clipboard().setPixmap(QPixmap.fromImage(qScreen))
+
+    def showMenu(self, type, e):
         menu = QMenu()
-        save_action = menu.addAction("Save")
-        cancel_action = menu.addAction("Cancel")
-        exit_action = menu.addAction("Exit")
-        action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
-        if action == save_action:
-            self.saveScreenShot(self.rect_x1, self.rect_y1, e.x(), e.y())
-            self.close()
-            sys.exit()
-        elif action == cancel_action:
-            return 
+        if type == 'cropped':
+
+            save_crop_action = menu.addAction(
+                QAction(QIcon("icons/save.png"), "Save region screenshot", self))
+            saveAs_crop_action = menu.addAction("Save region screenshot as..")
+            clipboard_crop_action = menu.addAction(
+                "Copy region screenshot to clipboard")
+            cancel_action = menu.addAction("Cancel")
+            exit_action = menu.addAction("Exit")
+            action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
+
+            if action == save_crop_action:
+                datetime = QDateTime.currentDateTime()
+                self.saveScreenShot(datetime.toString(),
+                                    self.rect_x1, self.rect_y1, e.x(), e.y())
+                self.close()
+                sys.exit()
+            if action == saveAs_crop_action:
+                datetime = QDateTime.currentDateTime()
+                filename = self.saveFileDialog(datetime.toString())
+                if filename:
+                    self.saveScreenShot(
+                        filename, self.rect_x1, self.rect_y1, e.x(), e.y())
+                    self.close()
+                    sys.exit()
+            elif action == clipboard_crop_action:
+                self.copyToClipboard(self.rect_x1, self.rect_y1, e.x(), e.y())
+                self.close()
+                sys.exit()
+
+        elif type == 'fullscreen':
+            save_full_action = menu.addAction("Save full screenshot")
+            saveAs_full_action = menu.addAction("Save full screenshot as..")
+            clipboard_full_action = menu.addAction("Save full screenshot")
+            cancel_action = menu.addAction("Cancel")
+            exit_action = menu.addAction("Exit")
+            action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
+
+            if action == save_full_action:
+                datetime = QDateTime.currentDateTime()
+                self.saveScreenShot(datetime.toString(), -1, -1, -1, -1)
+                self.close()
+                sys.exit()
+            elif action == saveAs_full_action:
+                datetime = QDateTime.currentDateTime()
+                filename = self.saveFileDialog(datetime.toString())
+                if filename:
+                    self.saveScreenShot(filename, -1, -1, -1, -1)
+                    self.close()
+                    sys.exit()
+            elif action == clipboard_full_action:
+                self.copyToClipboard(-1, -1, -1, -1)
+                self.close()
+                sys.exit()
+        if action == cancel_action:
+            return
         elif action == exit_action:
             self.close()
             sys.exit()
+
+    def saveFileDialog(self, default):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        #options = QFileDialog.setDefaultSuffix('png')
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save screenshot as..", default, "Image file (*.png)", options=options)
+        if filename:
+            return filename
+
 
 def mask_image(imgdata, imgtype='jpg', size=64):
     """Return a ``QPixmap`` from *imgdata* masked with a smooth circle.
@@ -252,11 +317,12 @@ def mask_image(imgdata, imgtype='jpg', size=64):
     # account to get a sharp image on retina displays:
     #pr = QWindow().devicePixelRatio()
     pm = QPixmap.fromImage(out_img)
-    #pm.setDevicePixelRatio(pr)
+    # pm.setDevicePixelRatio(pr)
     #size *= pr
     #pm = pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     return pm
+
 
 def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -269,6 +335,7 @@ def main():
     shotty = Shotty(im)
 
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()
