@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction
-from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime
+from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 import sys
 import mss
@@ -131,8 +131,8 @@ class Shotty(QWidget):
 
         zoom = self.im[e.y()-10:e.y()+10, e.x()-10:e.x()+10, :].copy()
         h, w, _ = zoom.shape
-        #qZoom = QImage(zoom, w, h, QImage.Format_RGB888).rgbSwapped()
-        #qPixZoom = QPixmap.fromImage(qZoom)
+        # qZoom = QImage(zoom, w, h, QImage.Format_RGB888).rgbSwapped()
+        # qPixZoom = QPixmap.fromImage(qZoom)
         qPixZoom = mask_image(zoom)
         qPixZoom = qPixZoom.scaled(160, 160, Qt.KeepAspectRatio)
 
@@ -149,7 +149,7 @@ class Shotty(QWidget):
         self.l_mousePos.setPixmap(qPixZoom)
         self.l_mousePos.resize(160, 160)
 
-        #print(e.x(), e.y())
+        # print(e.x(), e.y())
         self.setTextLabelPosition(e.x(), e.y())
         QWidget.mouseMoveEvent(self, e)
         self.overlay.setLineCoords(e.x(), e.y())
@@ -207,12 +207,15 @@ class Shotty(QWidget):
         if type == 'cropped':
 
             save_crop_action = menu.addAction(
-                QAction(QIcon("icons/save.png"), "Save region screenshot", self))
-            saveAs_crop_action = menu.addAction("Save region screenshot as..")
-            clipboard_crop_action = menu.addAction(
-                "Copy region screenshot to clipboard")
-            cancel_action = menu.addAction("Cancel")
-            exit_action = menu.addAction("Exit")
+                QAction(QIcon("icons/save.png"), "Save region", self))
+            saveAs_crop_action = menu.addAction(
+                QAction(QIcon("icons/save-as.png"), "Save region as..", self))
+            clipboard_full_action = menu.addAction(
+                QAction(QIcon("icons/copy-clipboard.png"), "Copy region to clipboard", self))
+            cancel_action = menu.addAction(
+                QAction(QIcon("icons/close-window.png"), "Cancel", self))
+            exit_action = menu.addAction(
+                QAction(QIcon("icons/exit.png"), "Exit", self))
             action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
 
             if action == save_crop_action:
@@ -235,11 +238,16 @@ class Shotty(QWidget):
                 sys.exit()
 
         elif type == 'fullscreen':
-            save_full_action = menu.addAction("Save full screenshot")
-            saveAs_full_action = menu.addAction("Save full screenshot as..")
-            clipboard_full_action = menu.addAction("Save full screenshot")
-            cancel_action = menu.addAction("Cancel")
-            exit_action = menu.addAction("Exit")
+            save_full_action = menu.addAction(
+                QAction(QIcon("icons/save.png"), "Save", self))
+            saveAs_full_action = menu.addAction(
+                QAction(QIcon("icons/save.png"), "Save as..", self))
+            clipboard_full_action = menu.addAction(
+                QIcon("icons/copy-clipboard.png"), "Copy to clipboard", self)
+            cancel_action = menu.addAction(
+                QAction(QIcon("icons/close-window.png"), "Cancel", self))
+            exit_action = menu.addAction(
+                QAction(QIcon("icons/exit.png"), "Exit", self))
             action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
 
             if action == save_full_action:
@@ -265,11 +273,25 @@ class Shotty(QWidget):
             sys.exit()
 
     def saveFileDialog(self, default):
+        '''
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
-        #options = QFileDialog.setDefaultSuffix('png')
+
+        dialog = QFileDialog()
+        dialog.setFilter(dialog.filter() | QDir.Hidden)
+        dialog.setDefaultSuffix('png')
+        dialog.setAcceptMode(QFileDialog.AcceptSave)
+        dialog.setNameFilters(['Image PNG (*.png)'])
+        dialog.setDefaultSuffix('png')
+        dialog.setOptions(options)
+        # dialog.open()
+
+        QFileDialog.getSaveFileName(
+            dialog, "Save screenshot as..", default, "Image file (*.png)")
+        '''
+
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Save screenshot as..", default, "Image file (*.png)", options=options)
+            self, "Save screenshot as..", default, "Image file (*.png)")
         if filename:
             return filename
 
@@ -283,7 +305,7 @@ def mask_image(imgdata, imgtype='jpg', size=64):
 
     """
     # Load image and convert to 32-bit ARGB (adds an alpha channel):
-    #image = QImage.fromData(imgdata, imgtype)
+    # image = QImage.fromData(imgdata, imgtype)
     h, w, _ = imgdata.shape
     image = QImage(imgdata, w, h, QImage.Format_RGB888).rgbSwapped()
     image.convertToFormat(QImage.Format_ARGB32)
@@ -315,11 +337,11 @@ def mask_image(imgdata, imgtype='jpg', size=64):
 
     # Convert the image to a pixmap and rescale it.  Take pixel ratio into
     # account to get a sharp image on retina displays:
-    #pr = QWindow().devicePixelRatio()
+    # pr = QWindow().devicePixelRatio()
     pm = QPixmap.fromImage(out_img)
     # pm.setDevicePixelRatio(pr)
-    #size *= pr
-    #pm = pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    # size *= pr
+    # pm = pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     return pm
 
