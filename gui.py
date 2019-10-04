@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction
 from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
-from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon
+from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon, QFont
 import numpy as np
 import sys
 from utils import mask_image, setMouseTracking
@@ -63,28 +63,31 @@ class Shotty(QWidget):
     def initUI(self):
         QApplication.setOverrideCursor(Qt.CrossCursor)
         # Create widget
-        self.label = QLabel(self)
+        self.l_imFullscreen = QLabel(self)
         self.l_mousePos = QLabel(self)
-        self.l_mousePos.resize(200, 100)
+        self.l_dimensions = QLabel(self)
 
-        self.label.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.label.customContextMenuRequested.connect(self.showFullscreenshotMenu)
+        font = QFont("Calibri", 15)
+        self.l_dimensions.setFont(font)
+
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.showFullscreenshotMenu)
 
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
 
         qImg = QImage(self.im, w, h, QImage.Format_RGB888).rgbSwapped()
         pixmap = QPixmap.fromImage(qImg)
-        self.label.setPixmap(pixmap)
-        self.label.resize(pixmap.width(), pixmap.height())
+        self.l_imFullscreen.setPixmap(pixmap)
+        self.l_imFullscreen.resize(pixmap.width(), pixmap.height())
 
-        self.overlay = overlay(self.label)
+        self.overlay = overlay(self.l_imFullscreen)
         self.overlay.resize(pixmap.width(), pixmap.height())
 
         print("Overlay size: {}, {}".format(
             self.overlay.frameGeometry().width(), self.overlay.frameGeometry().height()))
 
-        self.label.setMouseTracking(True)
+        setMouseTracking(self, True)
 
         self.setWindowFlags(
             Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
@@ -125,6 +128,9 @@ class Shotty(QWidget):
         self.overlay.setLineCoords(e.x(), e.y())
         if self.pressed:
             self.overlay.setCoords(self.rect_x1, self.rect_y1, e.x(), e.y())
+            self.l_dimensions.move(self.rect_x1, self.rect_y1 - 35)
+            self.l_dimensions.resize(e.x(), 50)
+            self.l_dimensions.setText('W: %dpx H: %dpx' % (abs(e.x() - self.rect_x1), abs(e.y() - self.rect_y1)))
         self.overlay.update()
 
     def mousePressEvent(self, e):
@@ -144,6 +150,7 @@ class Shotty(QWidget):
             self.overlay.setCoords(
                 self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
             self.overlay.update()
+            self.l_dimensions.setText('')
         if e.button() == Qt.RightButton:
             self.showFullscreenshotMenu(e)
 
