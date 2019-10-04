@@ -1,3 +1,4 @@
+from PyQt5.QtWidgets import QApplication, QWidget, QMenu, QAction
 from PyQt5 import Qt
 import sys
 app = Qt.QApplication(sys.argv)
@@ -11,7 +12,7 @@ if systemtray_icon.isSystemTrayAvailable():
     actionshow.triggered.connect(
         lambda: self.hide() if self.isVisible() else self.show())
     actionquit = ctmenu.addAction("Quit")
-    actionquit.triggered.connect(self.close)
+    #actionquit.triggered.connect(app.close)
 
     systemtray_icon.setContextMenu(ctmenu)
     systemtray_icon.show()
