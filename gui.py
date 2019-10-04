@@ -5,20 +5,6 @@ import numpy as np
 import sys
 from utils import mask_image, setMouseTracking
 
-def MouseMoveFilter(QObject):
-    def eventFilter(self, obj, e):
-        if e.type() == QtCore.QEvent.MouseMove:
-                        # Hide the old tooltip, so that it can move
-            QtGui.QToolTip.hideText()
-            QtGui.QToolTip.showText(e.globalPos(), '%04f, %04f' %
-                                    (e.globalX(), e.globalY()), obj)
-            print(e.globalX(), e.globalY())
-
-            return False
-        # Call Base Class Method to Continue Normal Event Processing
-        return super(MouseMoveFilter, self).eventFilter(obj, e)
-
-
 class overlay(QWidget):
     def __init__(self, parent=None):
         super(overlay, self).__init__(parent)
