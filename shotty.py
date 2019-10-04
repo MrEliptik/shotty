@@ -4,6 +4,7 @@ import platform
 import time
 import numpy as np
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QIcon
 from gui import Shotty
 
 _platform = platform.system()
@@ -37,6 +38,7 @@ elif _platform == 'Darwin':
 
 def main():
     if _platform == 'Linux':
+        '''
         # Create hookmanager
         hookman = pyxhook.HookManager()
         # Define our callback to fire when a key is pressed down
@@ -50,6 +52,7 @@ def main():
         running = True
         while running:
             time.sleep(0.1)
+        '''
 
         startApp(screenshot())
     
@@ -75,6 +78,14 @@ def screenshot():
 
 def startApp(im):
     app = QApplication(sys.argv)
+    '''
+    app.setQuitOnLastWindowClosed(False)
+    qIcon = QIcon('icons/screenshot.png')
+    trayIcon = SystemTrayIcon(app, qIcon, 'Shotty')
+    trayIcon.show()
+    app.setWindowIcon(qIcon)
+    '''
+
     shotty = Shotty(im)
 
     sys.exit(app.exec_())
