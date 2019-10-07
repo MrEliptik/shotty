@@ -3,11 +3,14 @@ import mss
 import platform
 import time
 import numpy as np
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtGui import QIcon
 from gui import Shotty
 
 _platform = platform.system()
+
+# Global app
+app = QApplication(sys.argv)
 
 if _platform == 'Linux':
     import pyxhook
@@ -37,6 +40,29 @@ elif _platform == 'Darwin':
     print('[ERROR] macOS not supported!')
 
 def main():
+    # Try putting the app in tray  
+    app.setQuitOnLastWindowClosed(False)
+    qIcon = QIcon('icons/shotty.png')
+    app.setWindowIcon(qIcon)
+    tray = QSystemTrayIcon()
+    if tray:
+        tray.setIcon(qIcon)
+        tray.setVisible(True)
+        tray.show()
+
+        # Add a menu
+        trayMenu = QMenu()
+        region_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take region screenshot')
+        full_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take screenshot')
+        settings_screenshot_action = QAction(QIcon("icons/settings.png"), 'Settings')
+        exit_action = QAction(QIcon("icons/exit.png"), 'Exit Shoty')
+        trayMenu.addAction(region_screenshot_action)
+        trayMenu.addAction(full_screenshot_action)
+        trayMenu.addAction(settings_screenshot_action)
+        trayMenu.addAction(exit_action)
+
+        tray.setContextMenu(trayMenu)
+
     if _platform == 'Linux':
         '''
         # Create hookmanager
@@ -76,18 +102,8 @@ def screenshot():
         im = np.array(sct.grab(sct.monitors[1]))
     return im
 
-def startApp(im):
-    app = QApplication(sys.argv)
-    '''
-    app.setQuitOnLastWindowClosed(False)
-    qIcon = QIcon('icons/screenshot.png')
-    trayIcon = SystemTrayIcon(app, qIcon, 'Shotty')
-    trayIcon.show()
-    app.setWindowIcon(qIcon)
-    '''
-
+def startApp(im):   
     shotty = Shotty(im)
-
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
