@@ -45,7 +45,7 @@ class overlay(QWidget):
 
 
 class Shotty(QWidget):
-    def __init__(self, im):
+    def __init__(self, im, tray=None):
         super().__init__()
         print('Removing alpha..')
         self.im = im[:, :, :3].copy()
@@ -59,6 +59,9 @@ class Shotty(QWidget):
         self.line_x = 0
         self.line_y = 0
         self.pressed = False
+        if tray.isSystemTrayAvailable():
+            self.tray = tray
+            self.showNotification('Shotty', 'Shotty is running in the background.')
 
     def initUI(self):
         QApplication.setOverrideCursor(Qt.CrossCursor)
@@ -275,4 +278,7 @@ class Shotty(QWidget):
             self, "Save screenshot as..", default, "Image file (*.png)")
         if filename:
             return filename
+
+    def showNotification(self, title, mess):
+        self.tray.showMessage(title, mess)
 
