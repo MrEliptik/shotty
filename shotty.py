@@ -17,23 +17,25 @@ if _platform == 'Linux':
 
     # This function is called every time a key is presssed
     def kbevent(event):
-        global running
+        global keyLogging
         # print key info
         print(event)
 
         # If the ascii value matches spacebar, terminate the while loop
         if event.Ascii == 44:
-            running = False
+            keyLogging = False
 
 elif _platform == 'Windows':
-    import pythoncom
+    import pythoncom as pc
     from pyHook import HookManager, GetKeyState, HookConstants
 
     def OnKeyboardEvent(event):
+        global keyLogging
         print(repr(event), event.KeyID, HookConstants.IDToName(event.KeyID), event.ScanCode , event.Ascii, event.flags)
         if event.KeyID == 44:
             print("snapshot pressed")
-            startApp(screenshot())
+            keyLogging = False
+            #startApp(screenshot())
         return True
 
 elif _platform == 'Darwin':
@@ -45,7 +47,7 @@ def main():
     qIcon = QIcon('icons/shotty.png')
     app.setWindowIcon(qIcon)
     tray = QSystemTrayIcon()
-    if tray is not None:
+    if tray.isSystemTrayAvailable():
         tray.setIcon(qIcon)
         tray.setVisible(True)
         tray.show()
@@ -76,12 +78,11 @@ def main():
         hookman.start()
 
         # Create a loop to keep the application running
-        running = True
-        while running:
+        keyLogging = True
+        while keyLogging:
             time.sleep(0.1)
-        
 
-        startApp(screenshot())
+        startApp(screenshot(), tray)
     
     elif _platform == 'Windows':
         # create a hook manager
@@ -91,7 +92,12 @@ def main():
         # set the hook
         hm.HookKeyboard()
         # wait forever
-        pythoncom.PumpMessages()
+        keyLogging = True
+        while keyLogging:
+            pc.PumpWaitingMessages()
+            time.sleep(0.1)
+
+        startApp(screenshot(), tray)
 
     '''
     # Close the listener when we are done
@@ -103,8 +109,8 @@ def screenshot():
         im = np.array(sct.grab(sct.monitors[1]))
     return im
 
-def startApp(im):   
-    shotty = Shotty(im)
+def startApp(im, tray):   
+    shotty = Shotty(im, tray)
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
