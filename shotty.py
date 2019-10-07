@@ -45,7 +45,7 @@ def main():
     qIcon = QIcon('icons/shotty.png')
     app.setWindowIcon(qIcon)
     tray = QSystemTrayIcon()
-    if tray:
+    if tray is not None:
         tray.setIcon(qIcon)
         tray.setVisible(True)
         tray.show()
@@ -62,9 +62,10 @@ def main():
         trayMenu.addAction(exit_action)
 
         tray.setContextMenu(trayMenu)
+    else:
+        print("[ERROR] Can't instantiate tray icon")
 
     if _platform == 'Linux':
-        '''
         # Create hookmanager
         hookman = pyxhook.HookManager()
         # Define our callback to fire when a key is pressed down
@@ -78,7 +79,7 @@ def main():
         running = True
         while running:
             time.sleep(0.1)
-        '''
+        
 
         startApp(screenshot())
     
