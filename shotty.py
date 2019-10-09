@@ -35,7 +35,9 @@ elif _platform == 'Windows':
         if event.KeyID == 44:
             print("snapshot pressed")
             keyLogging = False
-            #startApp(screenshot())
+            # Ensures event will not propagate
+            return False
+        # Event will propagate normally
         return True
 
 elif _platform == 'Darwin':
