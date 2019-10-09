@@ -4,6 +4,7 @@ from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPe
 import numpy as np
 import sys
 from utils import mask_image, setMouseTracking
+import _globals
 
 class overlay(QWidget):
     def __init__(self, parent=None):
@@ -102,7 +103,8 @@ class Shotty(QWidget):
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
             self.close()
-            sys.exit()
+            #_globals.keyLogging = True
+            #sys.exit()
 
     def mouseMoveEvent(self, e):
         self.line_x = e.x()
@@ -201,9 +203,9 @@ class Shotty(QWidget):
             datetime = QDateTime.currentDateTime()
             if self.saveScreenShot(datetime.toString(),
                                 self.rect_x1, self.rect_y1, e.x(), e.y()):
-                self.showNotification('Shotty', 'Image saved: {}'.format(filename))
+                self.showNotification('Shotty', 'Image saved: {}'.format(datetime.toString()))
             else:
-                self.showNotification('Shotty', 'Can\'t save: {}'.format(filename))
+                self.showNotification('Shotty', 'Can\'t save: {}'.format(datetime.toString()))
             self.close()
             sys.exit()
         elif action == saveAs_crop_action:
@@ -225,7 +227,8 @@ class Shotty(QWidget):
             return
         elif action == exit_action:
             self.close()
-            sys.exit()
+            _globals.running = False
+            #sys.exit()
 
     def showFullscreenshotMenu(self, e):
         menu = QMenu()
@@ -244,9 +247,9 @@ class Shotty(QWidget):
         if action == save_full_action:
             datetime = QDateTime.currentDateTime()
             if self.saveScreenShot(datetime.toString(), -1, -1, -1, -1):
-                self.showNotification('Shotty', 'Image saved: {}'.format(datetime))
+                self.showNotification('Shotty', 'Image saved: {}'.format(datetime.toString()))
             else:
-                self.showNotification('Shotty', 'Can\'t save: {}'.format(filename))
+                self.showNotification('Shotty', 'Can\'t save: {}'.format(datetime.toString()))
             self.close()
             sys.exit()
         elif action == saveAs_full_action:
@@ -267,7 +270,8 @@ class Shotty(QWidget):
             return
         elif action == exit_action:
             self.close()
-            sys.exit()
+            _globals.running = False
+            #sys.exit()
 
     def saveFileDialog(self, default):
         '''
