@@ -11,39 +11,35 @@ _platform = platform.system()
 
 # Global app
 app = QApplication(sys.argv)
+keyLogging = False
 
 if _platform == 'Linux':
-    import pyxhook
-
-    # This function is called every time a key is presssed
-    def kbevent(event):
-        global keyLogging
-        # print key info
-        print(event)
-
-        # If the ascii value matches spacebar, terminate the while loop
-        if event.Ascii == 44:
-            keyLogging = False
-
+    import pyxhook     
 elif _platform == 'Windows':
     import pythoncom as pc
     from pyHook import HookManager, GetKeyState, HookConstants
+elif _platform == 'Darwin':
+    print('[ERROR] macOS not supported!')
+else:
+    print('[ERROR] {} not supported!'.format(_platform))
 
-    def OnKeyboardEvent(event):
-        global keyLogging
-        print(repr(event), event.KeyID, HookConstants.IDToName(event.KeyID), event.ScanCode , event.Ascii, event.flags)
+def OnKeyboardEvent(event):
+    global keyLogging
+    if _platform == 'Linux':
+        if event.Ascii == 44:
+            keyLogging = False
+            return False
+    elif _platform == 'Windows':
         if event.KeyID == 44:
             print("snapshot pressed")
             keyLogging = False
             # Ensures event will not propagate
             return False
-        # Event will propagate normally
-        return True
-
-elif _platform == 'Darwin':
-    print('[ERROR] macOS not supported!')
+    # Event will propagate normally
+    return True
 
 def main():
+    global keyLogging
     # Try putting the app in tray  
     app.setQuitOnLastWindowClosed(False)
     qIcon = QIcon('icons/shotty.png')
@@ -73,7 +69,7 @@ def main():
         # Create hookmanager
         hookman = pyxhook.HookManager()
         # Define our callback to fire when a key is pressed down
-        hookman.KeyDown = kbevent
+        hookman.KeyDown = OnKeyboardEvent
         # Hook the keyboard
         hookman.HookKeyboard()
         # Start our listener
