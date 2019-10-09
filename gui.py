@@ -59,9 +59,10 @@ class Shotty(QWidget):
         self.line_x = 0
         self.line_y = 0
         self.pressed = False
-        if tray.isSystemTrayAvailable():
-            self.tray = tray
-            self.showNotification('Shotty', 'Shotty is running in the background.')
+        if tray is not None:
+            if tray.isSystemTrayAvailable():
+                self.tray = tray
+                self.showNotification('Shotty', 'Shotty is running in the background.')
 
     def initUI(self):
         QApplication.setOverrideCursor(Qt.CrossCursor)
