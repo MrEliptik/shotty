@@ -62,7 +62,7 @@ class Shotty(QWidget):
         if tray is not None:
             if tray.isSystemTrayAvailable():
                 self.tray = tray
-                self.showNotification('Shotty', 'Shotty is running in the background.')
+            self.showNotification('Shotty', 'Shotty is running in the background.')
 
     def initUI(self):
         QApplication.setOverrideCursor(Qt.CrossCursor)
@@ -170,7 +170,7 @@ class Shotty(QWidget):
             crop_im = self.im[y1:y2, x1:x2, :].copy()
             h, w, _ = crop_im.shape
             qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
-        qScreen.save(filename)
+        return qScreen.save(filename)
 
     def copyToClipboard(self, x1, y1, x2, y2):
         if x1 == -1:
@@ -199,16 +199,22 @@ class Shotty(QWidget):
 
         if action == save_crop_action:
             datetime = QDateTime.currentDateTime()
-            self.saveScreenShot(datetime.toString(),
-                                self.rect_x1, self.rect_y1, e.x(), e.y())
+            if self.saveScreenShot(datetime.toString(),
+                                self.rect_x1, self.rect_y1, e.x(), e.y()):
+                self.showNotification('Shotty', 'Image saved: {}'.format(filename))
+            else:
+                self.showNotification('Shotty', 'Can\'t save: {}'.format(filename))
             self.close()
             sys.exit()
         elif action == saveAs_crop_action:
             datetime = QDateTime.currentDateTime()
             filename = self.saveFileDialog(datetime.toString())
             if filename:
-                self.saveScreenShot(
-                    filename, self.rect_x1, self.rect_y1, e.x(), e.y())
+                if self.saveScreenShot(
+                    filename, self.rect_x1, self.rect_y1, e.x(), e.y()):
+                    self.showNotification('Shotty', 'Image saved: {}'.format(filename))
+                else:
+                    self.showNotification('Shotty', 'Can\'t save: {}'.format(filename))
                 self.close()
                 sys.exit()
         elif action == clipboard_crop_action:
@@ -237,14 +243,20 @@ class Shotty(QWidget):
 
         if action == save_full_action:
             datetime = QDateTime.currentDateTime()
-            self.saveScreenShot(datetime.toString(), -1, -1, -1, -1)
+            if self.saveScreenShot(datetime.toString(), -1, -1, -1, -1):
+                self.showNotification('Shotty', 'Image saved: {}'.format(datetime))
+            else:
+                self.showNotification('Shotty', 'Can\'t save: {}'.format(filename))
             self.close()
             sys.exit()
         elif action == saveAs_full_action:
             datetime = QDateTime.currentDateTime()
             filename = self.saveFileDialog(datetime.toString())
             if filename:
-                self.saveScreenShot(filename, -1, -1, -1, -1)
+                if self.saveScreenShot(filename, -1, -1, -1, -1):
+                    self.showNotification('Shotty', 'Image saved: {}'.format(filename))
+                else:
+                    self.showNotification('Shotty', 'Can\'t save: {}'.format(filename))
                 self.close()
                 sys.exit()
         elif action == clipboard_full_action:
@@ -281,5 +293,6 @@ class Shotty(QWidget):
             return filename
 
     def showNotification(self, title, mess):
-        self.tray.showMessage(title, mess)
+        if self.tray.isSystemTrayAvailable():
+            self.tray.showMessage(title, mess)
 
