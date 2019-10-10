@@ -8,6 +8,8 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QObject, pyqtSignal
 from gui import Shotty
 import _globals
+from Xlib.display import Display
+from Xlib import X
 
 _platform = platform.system()
 
@@ -30,7 +32,7 @@ def OnKeyboardEvent(event):
     #global running
 
     if _platform == 'Linux':
-        if event.Ascii == 44:
+        if event._data['detail'] == 107:
             _globals.keyLogging = False
             return False
     elif _platform == 'Windows':
@@ -75,23 +77,21 @@ def main():
     # Run until user clicks on exit iconTray
     while _globals.running:
         if _platform == 'Linux':
-            # Create hookmanager
-            hookman = pyxhook.HookManager()
-            # Define our callback to fire when a key is pressed down
-            hookman.KeyDown = OnKeyboardEvent
-            # Hook the keyboard
-            hookman.HookKeyboard()
-            # Start our listener
-            hookman.start()
+            # Get root screen
+            root = Display().screen().root
+            # Add key grabber for 'print'
+            root.grab_key(107, X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
 
             # Create a loop to keep the application running
             _globals.keyLogging = True
             while _globals.keyLogging:
+                event = root.display.next_event()
+                OnKeyboardEvent(event)
                 time.sleep(0.1)
 
-            # Close the listener for the time 
+            # Close the grabber for the time 
             # of the application
-            hookman.cancel()
+            #TODO
 
             startApp(screenshot(), tray)
         
