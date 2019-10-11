@@ -3,23 +3,21 @@ import mss
 import platform
 import time
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QMenu, QAction
+from PyQt5.QtWidgets import QApplication, QMenu, QAction, QSystemTrayIcon
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QObject, pyqtSignal
 from shotty_gui import ShottyFullscreen, ShottyInfoWindow
 import _globals
-from Xlib.display import Display
-from Xlib import X
 
 _platform = platform.system()
-
 # Global app
 app = QApplication(sys.argv)
 
 shotty = None
 
 if _platform == 'Linux':
-    import pyxhook     
+    from Xlib.display import Display
+    from Xlib import X
 elif _platform == 'Windows':
     import pythoncom as pc
     from pyHook import HookManager, GetKeyState, HookConstants
@@ -30,7 +28,6 @@ else:
 
 def OnKeyboardEvent(event):
     #global running
-
     if _platform == 'Linux':
         if event._data['detail'] == 107:
             _globals.keyLogging = False
@@ -44,6 +41,43 @@ def OnKeyboardEvent(event):
     # Event will propagate normally
     return True
 
+class Tray():
+    def __init__(self, qIcon):
+        self.tray = self.createShottyTray(qIcon)
+        
+    def createShottyTray(self, qIcon):
+        tray = QSystemTrayIcon(qIcon)
+        if tray.isSystemTrayAvailable():
+            tray.setIcon(qIcon)
+            tray.setVisible(True)
+            tray.setContextMenu(self.createTrayMenu())
+            tray.show()
+
+            return tray
+
+        print("[ERROR] Can't instantiate tray icon")
+        return None
+
+    def createTrayMenu(self):
+        # Add a menu
+        trayMenu = QMenu()
+        region_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take region screenshot')
+        full_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take screenshot')
+        settings_action = QAction(QIcon("icons/settings.png"), 'Settings')
+        about_action = QAction(QIcon("icons/info.png"), 'About')
+        exit_action = QAction(QIcon("icons/exit.png"), 'Exit Shoty')
+
+        exit_action.triggered.connect(exitApp)
+        about_action.triggered.connect(launchShottyInfoWindow)
+
+        trayMenu.addAction(region_screenshot_action)
+        trayMenu.addAction(full_screenshot_action)
+        trayMenu.addAction(settings_action)
+        trayMenu.addAction(about_action)
+        trayMenu.addAction(exit_action) 
+
+        return trayMenu   
+
 def main():
     #global keyLogging
     # Try putting the app in tray  
@@ -51,7 +85,7 @@ def main():
     qIcon = QIcon('icons/shotty.png')
     app.setWindowIcon(qIcon)
     
-    tray = createShottyTray(qIcon)
+    tray = Tray(qIcon)
     '''
     tray = QSystemTrayIcon()
     if tray.isSystemTrayAvailable():
@@ -102,7 +136,7 @@ def main():
             #TODO
 
             startApp(screenshot(), tray)
-        
+
         elif _platform == 'Windows':
             # create a hook manager
             hm = HookManager()
@@ -118,10 +152,6 @@ def main():
 
             startApp(screenshot(), tray)
 
-def exitApp():
-    _globals.running = False
-    sys.exit()
-
 def screenshot():
     with mss.mss() as sct:
         # Get raw pixels from the screen, save it to a Numpy array
@@ -136,6 +166,10 @@ def startApp(im, tray):
 def launchShottyInfoWindow():
     shotty = ShottyInfoWindow()
     #sys.exit(app.exec_())
+
+def exitApp():
+    _globals.running = False
+    sys.exit()
 
 if __name__ == "__main__":
     main()
