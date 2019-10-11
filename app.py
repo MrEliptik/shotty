@@ -131,7 +131,7 @@ def startApp(im, tray):
 
 def launchShottyInfoWindow():
     shotty = ShottyInfoWindow()
-    sys.exit(app.exec_())
+    #sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
