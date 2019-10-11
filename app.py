@@ -6,7 +6,7 @@ import numpy as np
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QObject, pyqtSignal
-from gui import Shotty
+from shotty_gui import Shotty
 import _globals
 from Xlib.display import Display
 from Xlib import X
