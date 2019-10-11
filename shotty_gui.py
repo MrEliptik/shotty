@@ -44,8 +44,23 @@ class overlay(QWidget):
         painter.drawLine(0, self.line_y, self.width(), self.line_y)
         painter.drawLine(self.line_x, 0, self.line_x, self.height())
 
+class ShottyInfoWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.title = 'Shotty - Cross platform screenshot app'
+        self.height = 480
+        self.width = 640
+        size = QApplication.primaryScreen().size()
+        self.top = size.height() / 2
+        self.left = size.width() / 2
+        self.initUI()
 
-class Shotty(QWidget):
+    def initUI(self):
+        self.setWindowTitle(self.title)
+        self.setGeometry(self.left, self.top, self.width, self.height)
+        self.show()
+
+class ShottyFullscreen(QWidget):
     def __init__(self, im, tray=None):
         super().__init__()
         print('Removing alpha..')
