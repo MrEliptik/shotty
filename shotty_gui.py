@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction, QSystemTrayIcon
 from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon, QFont
 import numpy as np
@@ -43,6 +43,36 @@ class overlay(QWidget):
         painter.setPen(QPen(Qt.green, 1, Qt.DotLine))
         painter.drawLine(0, self.line_y, self.width(), self.line_y)
         painter.drawLine(self.line_x, 0, self.line_x, self.height())
+
+def createShottyTray():
+    tray = QSystemTrayIcon(qIcon)
+    if tray.isSystemTrayAvailable():
+        tray.setIcon(qIcon)
+        tray.setVisible(True)
+        tray.show()
+
+        # Add a menu
+        trayMenu = QMenu()
+        region_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take region screenshot')
+        full_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take screenshot')
+        settings_action = QAction(QIcon("icons/settings.png"), 'Settings')
+        about_action = QAction(QIcon("icons/info.png"), 'About')
+        exit_action = QAction(QIcon("icons/exit.png"), 'Exit Shoty')
+
+        exit_action.triggered.connect(exitApp)
+        about_action.triggered.connect(launchShottyInfoWindow)
+
+        trayMenu.addAction(region_screenshot_action)
+        trayMenu.addAction(full_screenshot_action)
+        trayMenu.addAction(settings_action)
+        trayMenu.addAction(about_action)
+        trayMenu.addAction(exit_action)    
+
+        tray.setContextMenu(trayMenu)
+        return tray
+
+    print("[ERROR] Can't instantiate tray icon")
+    return None
 
 class ShottyInfoWindow(QWidget):
     def __init__(self):

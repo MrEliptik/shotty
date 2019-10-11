@@ -3,7 +3,7 @@ import mss
 import platform
 import time
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
+from PyQt5.QtWidgets import QApplication, QMenu, QAction
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QObject, pyqtSignal
 from shotty_gui import ShottyFullscreen, ShottyInfoWindow
@@ -50,6 +50,9 @@ def main():
     app.setQuitOnLastWindowClosed(False)
     qIcon = QIcon('icons/shotty.png')
     app.setWindowIcon(qIcon)
+    
+    tray = createShottyTray(qIcon)
+    '''
     tray = QSystemTrayIcon()
     if tray.isSystemTrayAvailable():
         tray.setIcon(qIcon)
@@ -76,6 +79,7 @@ def main():
         tray.setContextMenu(trayMenu)
     else:
         print("[ERROR] Can't instantiate tray icon")
+    '''
 
     # Run until user clicks on exit iconTray
     while _globals.running:
