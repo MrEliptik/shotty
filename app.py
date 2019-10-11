@@ -6,7 +6,7 @@ import numpy as np
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QObject, pyqtSignal
-from shotty_gui import Shotty
+from shotty_gui import ShottyFullscreen, ShottyInfoWindow
 import _globals
 from Xlib.display import Display
 from Xlib import X
@@ -60,14 +60,17 @@ def main():
         trayMenu = QMenu()
         region_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take region screenshot')
         full_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take screenshot')
-        settings_screenshot_action = QAction(QIcon("icons/settings.png"), 'Settings')
+        settings_action = QAction(QIcon("icons/settings.png"), 'Settings')
+        about_action = QAction(QIcon("icons/info.png"), 'About')
         exit_action = QAction(QIcon("icons/exit.png"), 'Exit Shoty')
 
         exit_action.triggered.connect(exitApp)
+        about_action.triggered.connect(launchShottyInfoWindow)
 
         trayMenu.addAction(region_screenshot_action)
         trayMenu.addAction(full_screenshot_action)
-        trayMenu.addAction(settings_screenshot_action)
+        trayMenu.addAction(settings_action)
+        trayMenu.addAction(about_action)
         trayMenu.addAction(exit_action)    
 
         tray.setContextMenu(trayMenu)
@@ -77,6 +80,7 @@ def main():
     # Run until user clicks on exit iconTray
     while _globals.running:
         if _platform == 'Linux':
+            
             # Get root screen
             root = Display().screen().root
             # Add key grabber for 'print'
@@ -88,7 +92,7 @@ def main():
                 event = root.display.next_event()
                 OnKeyboardEvent(event)
                 time.sleep(0.1)
-
+            
             # Close the grabber for the time 
             # of the application
             #TODO
@@ -122,7 +126,11 @@ def screenshot():
 
 def startApp(im, tray): 
     global shotty  
-    shotty = Shotty(im, tray)
+    shotty = ShottyFullscreen(im, tray)
+    sys.exit(app.exec_())
+
+def launchShottyInfoWindow():
+    shotty = ShottyInfoWindow()
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
