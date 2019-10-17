@@ -1,10 +1,42 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction
-from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction, QSystemTrayIcon, QMessageBox
+from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir, QThread, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon, QFont
 import numpy as np
 import sys
-from utils import mask_image, setMouseTracking
+import time
+import platform
+from threading import Thread
+from utils import mask_image, setMouseTracking, screenshot
 import _globals
+from about import ShottyAboutWindow
+
+_platform = platform.system()
+
+if _platform == 'Linux':
+    from Xlib.display import Display
+    from Xlib import X
+elif _platform == 'Windows':
+    import pythoncom as pc
+    from pyHook import HookManager
+elif _platform == 'Darwin':
+    print('[ERROR] macOS not supported!')
+else:
+    print('[ERROR] {} not supported!'.format(_platform))
+
+def OnKeyboardEvent(event):
+    #global running
+    if _platform == 'Linux':
+        if event._data['detail'] == 107:
+            _globals.keyLogging = False
+            return False
+    elif _platform == 'Windows':
+        if event.KeyID == 44:
+            print("snapshot pressed")
+            _globals.keyLogging = False
+            # Ensures event will not propagate
+            return False
+    # Event will propagate normally
+    return True
 
 class overlay(QWidget):
     def __init__(self, parent=None):
@@ -44,28 +76,59 @@ class overlay(QWidget):
         painter.drawLine(0, self.line_y, self.width(), self.line_y)
         painter.drawLine(self.line_x, 0, self.line_x, self.height())
 
-class ShottyInfoWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.title = 'Shotty - Cross platform screenshot app'
-        self.height = 480
-        self.width = 640
-        size = QApplication.primaryScreen().size()
-        self.top = size.height() / 2
-        self.left = size.width() / 2
-        self.initUI()
+class HotkeyThread(QThread):
+    signal = pyqtSignal('PyQt_PyObject')
 
-    def initUI(self):
-        self.setWindowTitle(self.title)
-        self.setGeometry(self.left, self.top, self.width, self.height)
-        self.show()
+    def __init__(self):
+        QThread.__init__(self)
+
+    # run method gets called when we start the thread
+    def run(self):
+        # Run until user clicks on exit iconTray
+        if _platform == 'Linux':     
+            # Get root screen
+            root = Display().screen().root
+            # Add key grabber for 'print'
+            root.grab_key(107, X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
+
+            # Create a loop to keep the application running
+            _globals.keyLogging = True
+            while _globals.keyLogging:
+                event = root.display.next_event()
+                OnKeyboardEvent(event)
+                time.sleep(0.1)
+            
+            # Close the grabber for the time 
+            # of the application
+            #TODO
+
+        elif _platform == 'Windows': 
+            # create a hook manager
+            hm = HookManager()
+            # watch for all mouse events
+            hm.KeyDown = OnKeyboardEvent
+            # set the hook
+            hm.HookKeyboard()
+            # wait forever
+            _globals.keyLogging = True
+            while _globals.keyLogging:
+                pc.PumpWaitingMessages()
+                time.sleep(0.1)
+
+        print("Finish hotkey")
+        # git clone done, now inform the main thread with the output
+        self.signal.emit('done')
 
 class ShottyFullscreen(QWidget):
-    def __init__(self, im, tray=None):
+    def __init__(self):
         super().__init__()
-        print('Removing alpha..')
-        self.im = im[:, :, :3].copy()
-        self.initUI()
+
+        # This is the thread object
+        self.hotkeyThread = HotkeyThread()  
+        # Connect the signal from the thread to the finished method
+        self.hotkeyThread.signal.connect(self.initUI)
+
+    def initUI(self):
         self.setTextLabelPosition(0, 0)
         #setMouseTracking(self, True)
         self.rect_x1 = 0
@@ -74,13 +137,8 @@ class ShottyFullscreen(QWidget):
         self.rect_y2 = 0
         self.line_x = 0
         self.line_y = 0
-        self.pressed = False
-        if tray.tray is not None:
-            if tray.tray.isSystemTrayAvailable():
-                self.tray = tray
-            self.showNotification('Shotty', 'Shotty is running in the background.')
 
-    def initUI(self):
+        self.pressed = False
         QApplication.setOverrideCursor(Qt.CrossCursor)
         # Create widget
         self.l_imFullscreen = QLabel(self)
@@ -92,6 +150,10 @@ class ShottyFullscreen(QWidget):
 
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.showFullscreenshotMenu)
+     
+        im = screenshot()
+        # Remove alpha
+        self.im = im[:, :, :3].copy()
 
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
@@ -312,6 +374,19 @@ class ShottyFullscreen(QWidget):
             return filename
 
     def showNotification(self, title, mess):
-        if self.tray.tray.isSystemTrayAvailable():
-            self.tray.tray.showMessage(title, mess)
+        if self.shottyTray.tray.isSystemTrayAvailable():
+            self.shottyTray.tray.showMessage(title, mess)
 
+    def showShottyAboutWindow(self):
+        self.shottyAboutWindow = ShottyAboutWindow()
+
+    # Unused
+    def closeEvent(self, e):
+        close = QMessageBox.question(self,
+                                        "Exit",
+                                        "Are you sure you want to exit?",
+                                        QMessageBox.Yes | QMessageBox.No)
+        if close == QMessageBox.Yes:
+            e.accept()
+        else:
+            e.ignore()
