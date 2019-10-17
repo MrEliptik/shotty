@@ -2,6 +2,8 @@ from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidg
 from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 
+import mss
+
 def mask_image(imgdata, imgtype='jpg', size=64):
     """Return a ``QPixmap`` from *imgdata* masked with a smooth circle.
 
@@ -61,3 +63,9 @@ def setMouseTracking(self, flag):
             recursive_set(child)
     QWidget.setMouseTracking(self, flag)
     recursive_set(self)
+
+def screenshot():
+    with mss.mss() as sct:
+        # Get raw pixels from the screen, save it to a Numpy array
+        im = np.array(sct.grab(sct.monitors[1]))
+    return im
