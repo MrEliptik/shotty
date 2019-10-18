@@ -14,6 +14,7 @@ class ShottyAboutWindow(QWidget):
         self.initUI()
 
     def initUI(self):
+        QApplication.setOverrideCursor(Qt.ArrowCursor)
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.setFixedSize(self.size())
