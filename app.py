@@ -1,20 +1,20 @@
 import sys
-import mss
-import platform
-import time
 import numpy as np
 from PyQt5.QtWidgets import QApplication, QMenu, QAction, QSystemTrayIcon
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, QDateTime
 from shotty_gui import ShottyFullscreen, ShottyAboutWindow
 import _globals
-
-_platform = platform.system()
-# Global app
-app = QApplication(sys.argv)
+from utils import showNotification, screenshot, getDateTime
 
 def main(): 
-    app.setQuitOnLastWindowClosed(False)
+
+    d = getDateTime()
+
+    # Global app
+    app = QApplication(sys.argv)
+
+    QApplication.setQuitOnLastWindowClosed(False)
     qIcon = QIcon('icons/shotty.png')
     app.setWindowIcon(qIcon)
     
@@ -22,6 +22,8 @@ def main():
 
     tray = QSystemTrayIcon()
     if tray.isSystemTrayAvailable():
+        showNotification('Shotty', 'Running in the background')
+
         tray.setIcon(QIcon('icons/shotty.png'))
         tray.setVisible(True)
         tray.show()
@@ -36,7 +38,13 @@ def main():
 
         exit_action.triggered.connect(app.exit)
         about_action.triggered.connect(shotty.showShottyAboutWindow)
-
+        region_screenshot_action.triggered.connect(shotty.initUI)
+        # We need to pass checked because connect passes
+        # a bool arg as first param
+        full_screenshot_action.triggered.connect(
+            lambda checked, date=getDateTime(), x1=-1, y1=-1, x2=-1, y2=-1, 
+                im=screenshot(): shotty.saveScreenShot(date, x1, y1, x2, y2, im=im[:,:,:3])
+        )
         trayMenu.addAction(region_screenshot_action)
         trayMenu.addAction(full_screenshot_action)
         trayMenu.addAction(settings_action)
