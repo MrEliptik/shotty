@@ -1,61 +1,30 @@
 import sys
-import mss
-import platform
-import time
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QMenu, QAction
+from PyQt5.QtWidgets import QApplication, QMenu, QAction, QSystemTrayIcon
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QObject, pyqtSignal
-from shotty_gui import ShottyFullscreen, ShottyInfoWindow
+from PyQt5.QtCore import QObject, pyqtSignal, QDateTime
+from shotty_gui import ShottyFullscreen, ShottyAboutWindow
 import _globals
-from Xlib.display import Display
-from Xlib import X
+from utils import showNotification, screenshot, getDateTime
 
-_platform = platform.system()
+def main(): 
 
-# Global app
-app = QApplication(sys.argv)
+    d = getDateTime()
 
-shotty = None
+    # Global app
+    app = QApplication(sys.argv)
 
-if _platform == 'Linux':
-    import pyxhook     
-elif _platform == 'Windows':
-    import pythoncom as pc
-    from pyHook import HookManager, GetKeyState, HookConstants
-elif _platform == 'Darwin':
-    print('[ERROR] macOS not supported!')
-else:
-    print('[ERROR] {} not supported!'.format(_platform))
-
-def OnKeyboardEvent(event):
-    #global running
-
-    if _platform == 'Linux':
-        if event._data['detail'] == 107:
-            _globals.keyLogging = False
-            return False
-    elif _platform == 'Windows':
-        if event.KeyID == 44:
-            print("snapshot pressed")
-            _globals.keyLogging = False
-            # Ensures event will not propagate
-            return False
-    # Event will propagate normally
-    return True
-
-def main():
-    #global keyLogging
-    # Try putting the app in tray  
-    app.setQuitOnLastWindowClosed(False)
+    QApplication.setQuitOnLastWindowClosed(False)
     qIcon = QIcon('icons/shotty.png')
     app.setWindowIcon(qIcon)
     
-    tray = createShottyTray(qIcon)
-    '''
+    shotty = ShottyFullscreen()
+
+    showNotification('Shotty', 'Running in the background')
+
     tray = QSystemTrayIcon()
     if tray.isSystemTrayAvailable():
-        tray.setIcon(qIcon)
+        tray.setIcon(QIcon('icons/shotty.png'))
         tray.setVisible(True)
         tray.show()
 
@@ -67,9 +36,15 @@ def main():
         about_action = QAction(QIcon("icons/info.png"), 'About')
         exit_action = QAction(QIcon("icons/exit.png"), 'Exit Shoty')
 
-        exit_action.triggered.connect(exitApp)
-        about_action.triggered.connect(launchShottyInfoWindow)
-
+        exit_action.triggered.connect(app.exit)
+        about_action.triggered.connect(shotty.showShottyAboutWindow)
+        region_screenshot_action.triggered.connect(shotty.initUI)
+        # We need to pass checked because connect passes
+        # a bool arg as first param
+        full_screenshot_action.triggered.connect(
+            lambda checked, date=getDateTime(), x1=-1, y1=-1, x2=-1, y2=-1, 
+                im=screenshot(): shotty.saveScreenShot(date, x1, y1, x2, y2, im=im[:,:,:3])
+        )
         trayMenu.addAction(region_screenshot_action)
         trayMenu.addAction(full_screenshot_action)
         trayMenu.addAction(settings_action)
@@ -79,63 +54,8 @@ def main():
         tray.setContextMenu(trayMenu)
     else:
         print("[ERROR] Can't instantiate tray icon")
-    '''
 
-    # Run until user clicks on exit iconTray
-    while _globals.running:
-        if _platform == 'Linux':
-            
-            # Get root screen
-            root = Display().screen().root
-            # Add key grabber for 'print'
-            root.grab_key(107, X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
-
-            # Create a loop to keep the application running
-            _globals.keyLogging = True
-            while _globals.keyLogging:
-                event = root.display.next_event()
-                OnKeyboardEvent(event)
-                time.sleep(0.1)
-            
-            # Close the grabber for the time 
-            # of the application
-            #TODO
-
-            startApp(screenshot(), tray)
-        
-        elif _platform == 'Windows':
-            # create a hook manager
-            hm = HookManager()
-            # watch for all mouse events
-            hm.KeyDown = OnKeyboardEvent
-            # set the hook
-            hm.HookKeyboard()
-            # wait forever
-            _globals.keyLogging = True
-            while _globals.keyLogging:
-                pc.PumpWaitingMessages()
-                time.sleep(0.1)
-
-            startApp(screenshot(), tray)
-
-def exitApp():
-    _globals.running = False
-    sys.exit()
-
-def screenshot():
-    with mss.mss() as sct:
-        # Get raw pixels from the screen, save it to a Numpy array
-        im = np.array(sct.grab(sct.monitors[1]))
-    return im
-
-def startApp(im, tray): 
-    global shotty  
-    shotty = ShottyFullscreen(im, tray)
     sys.exit(app.exec_())
-
-def launchShottyInfoWindow():
-    shotty = ShottyInfoWindow()
-    #sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,43 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction, QSystemTrayIcon
-from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction, QSystemTrayIcon, QMessageBox
+from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir, QThread, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon, QFont
+from PyQt5.QtMultimedia import QSound
 import numpy as np
 import sys
-from utils import mask_image, setMouseTracking
+import time
+import platform
+from threading import Thread
+from utils import mask_image, setMouseTracking, screenshot, showNotification, getExtension, getDateTime
 import _globals
+from about import ShottyAboutWindow
+
+_platform = platform.system()
+
+if _platform == 'Linux':
+    from Xlib.display import Display
+    from Xlib import X
+elif _platform == 'Windows':
+    import pythoncom as pc
+    from pyHook import HookManager
+elif _platform == 'Darwin':
+    print('[ERROR] macOS not supported!')
+else:
+    print('[ERROR] {} not supported!'.format(_platform))
+
+def OnKeyboardEvent(event):
+    #global running
+    if _platform == 'Linux':
+        if event._data['detail'] == 107:
+            _globals.keyLogging = False
+            return False
+    elif _platform == 'Windows':
+        if event.KeyID == 44:
+            print("snapshot pressed")
+            _globals.keyLogging = False
+            # Ensures event will not propagate
+            return False
+    # Event will propagate normally
+    return True
 
 class overlay(QWidget):
     def __init__(self, parent=None):
@@ -13,7 +46,11 @@ class overlay(QWidget):
         palette = QPalette(self.palette())
         palette.setColor(palette.Background, Qt.transparent)
 
+        self.im = None
+
         self.setPalette(palette)
+
+        self.active = True
 
         self.x1 = 0
         self.x2 = 0
@@ -34,6 +71,8 @@ class overlay(QWidget):
         self.line_y = line_y
 
     def paintEvent(self, event):
+        if not self.active:
+            return
         painter = QPainter()
         painter.begin(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -44,73 +83,80 @@ class overlay(QWidget):
         painter.drawLine(0, self.line_y, self.width(), self.line_y)
         painter.drawLine(self.line_x, 0, self.line_x, self.height())
 
-def createShottyTray():
-    tray = QSystemTrayIcon(qIcon)
-    if tray.isSystemTrayAvailable():
-        tray.setIcon(qIcon)
-        tray.setVisible(True)
-        tray.show()
+class HotkeyThread(QThread):
+    signal = pyqtSignal('PyQt_PyObject')
 
-        # Add a menu
-        trayMenu = QMenu()
-        region_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take region screenshot')
-        full_screenshot_action = QAction(QIcon("icons/screenshot.png"), 'Take screenshot')
-        settings_action = QAction(QIcon("icons/settings.png"), 'Settings')
-        about_action = QAction(QIcon("icons/info.png"), 'About')
-        exit_action = QAction(QIcon("icons/exit.png"), 'Exit Shoty')
-
-        exit_action.triggered.connect(exitApp)
-        about_action.triggered.connect(launchShottyInfoWindow)
-
-        trayMenu.addAction(region_screenshot_action)
-        trayMenu.addAction(full_screenshot_action)
-        trayMenu.addAction(settings_action)
-        trayMenu.addAction(about_action)
-        trayMenu.addAction(exit_action)    
-
-        tray.setContextMenu(trayMenu)
-        return tray
-
-    print("[ERROR] Can't instantiate tray icon")
-    return None
-
-class ShottyInfoWindow(QWidget):
     def __init__(self):
-        super().__init__()
-        self.title = 'Shotty - Cross platform screenshot app'
-        self.height = 480
-        self.width = 640
-        size = QApplication.primaryScreen().size()
-        self.top = size.height() / 2
-        self.left = size.width() / 2
-        self.initUI()
+        QThread.__init__(self)
 
-    def initUI(self):
-        self.setWindowTitle(self.title)
-        self.setGeometry(self.left, self.top, self.width, self.height)
-        self.show()
+    # run method gets called when we start the thread
+    def run(self):
+        # Run until user clicks on exit iconTray
+        if _platform == 'Linux':     
+            # Get root screen
+            root = Display().screen().root
+            # Add key grabber for 'print'
+            root.grab_key(107, X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
+
+            # Create a loop to keep the application running
+            _globals.keyLogging = True
+            while _globals.keyLogging:
+                event = root.display.next_event()
+                OnKeyboardEvent(event)
+                time.sleep(0.1)
+            
+            # Close the grabber for the time 
+            # of the application
+            #TODO
+
+        elif _platform == 'Windows': 
+            # create a hook manager
+            hm = HookManager()
+            # watch for all mouse events
+            hm.KeyDown = OnKeyboardEvent
+            # set the hook
+            hm.HookKeyboard()
+            # wait forever
+            _globals.keyLogging = True
+            while _globals.keyLogging:
+                pc.PumpWaitingMessages()
+                time.sleep(0.1)
+                #print('Hotkey thread waiting..')
+
+            print('Closing HookManager')
+            del hm
+
+        print("Finish hotkey")
+        # git clone done, now inform the main thread with the output
+        self.signal.emit('done')
+
+class SaveImageThread(QThread):
+    signal = pyqtSignal('PyQt_PyObject')
+
+    def __init__(self, im, filename):
+        QThread.__init__(self)
+        self.im = im
+        self.filename = filename
+
+    # run method gets called when we start the thread
+    def run(self):
+        self.im.save(self.filename)
+        self.signal.emit('done')
 
 class ShottyFullscreen(QWidget):
-    def __init__(self, im, tray=None):
+    def __init__(self):
         super().__init__()
-        print('Removing alpha..')
-        self.im = im[:, :, :3].copy()
-        self.initUI()
-        self.setTextLabelPosition(0, 0)
-        #setMouseTracking(self, True)
-        self.rect_x1 = 0
-        self.rect_y1 = 0
-        self.rect_x2 = 0
-        self.rect_y2 = 0
-        self.line_x = 0
-        self.line_y = 0
-        self.pressed = False
-        if tray is not None:
-            if tray.isSystemTrayAvailable():
-                self.tray = tray
-            self.showNotification('Shotty', 'Shotty is running in the background.')
+
+        # This is the thread object
+        self.hotkeyThread = HotkeyThread()  
+        self.hotkeyThread.start()
+        # Connect the signal from the thread to the finished method
+        self.hotkeyThread.signal.connect(self.initUI)
 
     def initUI(self):
+        QSound.play("sounds/shutter.wav")
+
+        self.pressed = False
         QApplication.setOverrideCursor(Qt.CrossCursor)
         # Create widget
         self.l_imFullscreen = QLabel(self)
@@ -122,6 +168,19 @@ class ShottyFullscreen(QWidget):
 
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.showFullscreenshotMenu)
+
+        self.setTextLabelPosition(0, 0)
+        setMouseTracking(self, True)
+        self.rect_x1 = 0
+        self.rect_y1 = 0
+        self.rect_x2 = 0
+        self.rect_y2 = 0
+        self.line_x = 0
+        self.line_y = 0
+     
+        im = screenshot()
+        # Remove alpha
+        self.im = im[:, :, :3].copy()
 
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
@@ -148,8 +207,9 @@ class ShottyFullscreen(QWidget):
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
             self.close()
-            #_globals.keyLogging = True
-            #sys.exit()
+            # User hit escape, we want to run hotkey hook again
+            self.hotkeyThread.start()
+            self.hotkeyThread.signal.connect(self.initUI)
 
     def mouseMoveEvent(self, e):
         self.line_x = e.x()
@@ -203,21 +263,36 @@ class ShottyFullscreen(QWidget):
             self.overlay.update()
             self.l_dimensions.setText('')
         if e.button() == Qt.RightButton:
+            self.overlay.active = False
             self.showFullscreenshotMenu(e)
 
     def setTextLabelPosition(self, x, y):
         self.l_mousePos.move(x + 20, y)
 
-    def saveScreenShot(self, filename, x1, y1, x2, y2):
+    def saveScreenShot(self, filename, x1, y1, x2, y2, im="self"):
+
+        if getExtension(filename) == '':
+            filename += '.png'
+        
+        if im == "self":
+            im = self.im
         if x1 == -1:
-            h, w, _ = self.im.shape
-            qScreen = QImage(self.im.copy(), w, h,
+            h, w, _ = im.shape
+            qScreen = QImage(im.copy(), w, h,
                              QImage.Format_RGB888).rgbSwapped()
         else:
-            crop_im = self.im[y1:y2, x1:x2, :].copy()
+            crop_im = im[y1:y2, x1:x2, :].copy()
             h, w, _ = crop_im.shape
             qScreen = QImage(crop_im, w, h, QImage.Format_RGB888).rgbSwapped()
-        return qScreen.save(filename)
+
+        self.saveImageThread = SaveImageThread(qScreen, filename)  
+        self.saveImageThread.start()
+        # Connect the signal from the thread to the finished method
+        self.saveImageThread.signal.connect(
+            lambda checked, title='Shotty', msg='Image saved: {}'.format(filename): showNotification(title, msg)
+        )
+
+        #return qScreen.save(filename)
 
     def copyToClipboard(self, x1, y1, x2, y2):
         if x1 == -1:
@@ -232,116 +307,97 @@ class ShottyFullscreen(QWidget):
 
     def showCroppedMenu(self, e):
         menu = QMenu()
-        save_crop_action = menu.addAction(
-            QAction(QIcon("icons/save.png"), "Save region", self))
-        saveAs_crop_action = menu.addAction(
-            QAction(QIcon("icons/save-as.png"), "Save region as..", self))
-        clipboard_crop_action = menu.addAction(
-            QAction(QIcon("icons/copy-clipboard.png"), "Copy region to clipboard", self))
-        cancel_action = menu.addAction(
-            QAction(QIcon("icons/close-window.png"), "Cancel", self))
-        exit_action = menu.addAction(
-            QAction(QIcon("icons/exit.png"), "Exit", self))
+        save_crop_action = QAction(QIcon("icons/save.png"), "Save region", self)
+        saveAs_crop_action = QAction(QIcon("icons/save-as.png"), "Save region as..", self)
+        clipboard_crop_action = QAction(QIcon("icons/copy-clipboard.png"), "Copy region to clipboard", self)
+        cancel_action = QAction(QIcon("icons/close-window.png"), "Cancel", self)
+        exit_action = QAction(QIcon("icons/exit.png"), "Exit", self)
+
+        menu.addAction(save_crop_action)
+        menu.addAction(saveAs_crop_action)
+        menu.addAction(clipboard_crop_action)
+        menu.addAction(cancel_action)
+        menu.addAction(exit_action)
+
         action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
 
         if action == save_crop_action:
-            datetime = QDateTime.currentDateTime()
-            if self.saveScreenShot(datetime.toString(),
-                                self.rect_x1, self.rect_y1, e.x(), e.y()):
-                self.showNotification('Shotty', 'Image saved: {}'.format(datetime.toString()))
-            else:
-                self.showNotification('Shotty', 'Can\'t save: {}'.format(datetime.toString()))
+            datetime = getDateTime()
+            self.saveScreenShot(datetime,self.rect_x1, self.rect_y1, e.x(), e.y())
             self.close()
-            sys.exit()
         elif action == saveAs_crop_action:
-            datetime = QDateTime.currentDateTime()
-            filename = self.saveFileDialog(datetime.toString())
+            datetime = getDateTime()
+            filename = self.saveFileDialog(datetime)
             if filename:
-                if self.saveScreenShot(
-                    filename, self.rect_x1, self.rect_y1, e.x(), e.y()):
-                    self.showNotification('Shotty', 'Image saved: {}'.format(filename))
-                else:
-                    self.showNotification('Shotty', 'Can\'t save: {}'.format(filename))
+                self.saveScreenShot(filename, self.rect_x1, self.rect_y1, e.x(), e.y())
                 self.close()
-                sys.exit()
         elif action == clipboard_crop_action:
             self.copyToClipboard(self.rect_x1, self.rect_y1, e.x(), e.y())
             self.close()
-            sys.exit()
         elif action == cancel_action:
             return
         elif action == exit_action:
             self.close()
             _globals.running = False
-            #sys.exit()
 
     def showFullscreenshotMenu(self, e):
         menu = QMenu()
-        save_full_action = menu.addAction(
-            QAction(QIcon("icons/save.png"), "Save", self))
-        saveAs_full_action = menu.addAction(
-            QAction(QIcon("icons/save.png"), "Save as..", self))
-        clipboard_full_action = menu.addAction(
-            QAction(QIcon("icons/copy-clipboard.png"), "Copy to clipboard", self))
-        cancel_action = menu.addAction(
-            QAction(QIcon("icons/close-window.png"), "Cancel", self))
-        exit_action = menu.addAction(
-            QAction(QIcon("icons/exit.png"), "Exit", self))
+
+        save_full_action = QAction(QIcon("icons/save.png"), "Save", self)
+        saveAs_full_action = QAction(QIcon("icons/save.png"), "Save as..", self)
+        clipboard_full_action = QAction(QIcon("icons/copy-clipboard.png"), "Copy to clipboard", self)
+        cancel_action = QAction(QIcon("icons/close-window.png"), "Cancel", self)
+        exit_action = QAction(QIcon("icons/exit.png"), "Exit", self) 
+
+        menu.addAction(save_full_action)
+        menu.addAction(saveAs_full_action)
+        menu.addAction(clipboard_full_action)
+        menu.addAction(cancel_action)
+        menu.addAction(exit_action)
+        
         action = menu.exec_(self.mapToGlobal(QPoint(e.x(), e.y())))
 
+        self.overlay.active = True
+
         if action == save_full_action:
-            datetime = QDateTime.currentDateTime()
-            if self.saveScreenShot(datetime.toString(), -1, -1, -1, -1):
-                self.showNotification('Shotty', 'Image saved: {}'.format(datetime.toString()))
-            else:
-                self.showNotification('Shotty', 'Can\'t save: {}'.format(datetime.toString()))
+            datetime = getDateTime()
+            self.saveScreenShot(datetime, -1, -1, -1, -1)
             self.close()
-            sys.exit()
         elif action == saveAs_full_action:
-            datetime = QDateTime.currentDateTime()
-            filename = self.saveFileDialog(datetime.toString())
+            datetime = getDateTime()
+            filename = self.saveFileDialog(datetime)
             if filename:
-                if self.saveScreenShot(filename, -1, -1, -1, -1):
-                    self.showNotification('Shotty', 'Image saved: {}'.format(filename))
-                else:
-                    self.showNotification('Shotty', 'Can\'t save: {}'.format(filename))
+                self.saveScreenShot(filename, -1, -1, -1, -1)
                 self.close()
-                sys.exit()
         elif action == clipboard_full_action:
             self.copyToClipboard(-1, -1, -1, -1)
-            self.close()
-            sys.exit()
         elif action == cancel_action:
             return
         elif action == exit_action:
             self.close()
             _globals.running = False
-            #sys.exit()
-
+        
     def saveFileDialog(self, default):
-        '''
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-
-        dialog = QFileDialog()
-        dialog.setFilter(dialog.filter() | QDir.Hidden)
-        dialog.setDefaultSuffix('png')
-        dialog.setAcceptMode(QFileDialog.AcceptSave)
-        dialog.setNameFilters(['Image PNG (*.png)'])
-        dialog.setDefaultSuffix('png')
-        dialog.setOptions(options)
-        # dialog.open()
-
-        QFileDialog.getSaveFileName(
-            dialog, "Save screenshot as..", default, "Image file (*.png)")
-        '''
-
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Save screenshot as..", default, "Image file (*.png)")
+        filename, ext = QFileDialog.getSaveFileName(
+            self, "Save screenshot as..", default, filter=('.png'))
         if filename:
-            return filename
+            return filename + ext
 
-    def showNotification(self, title, mess):
-        if self.tray.isSystemTrayAvailable():
-            self.tray.showMessage(title, mess)
+    def showShottyAboutWindow(self):
+        self.shottyAboutWindow = ShottyAboutWindow()
 
+    # Unused
+    def closeEvent(self, e):
+
+        # Unused
+        '''
+        close = QMessageBox.question(self,
+                                        "Exit",
+                                        "Are you sure you want to exit?",
+                                        QMessageBox.Yes | QMessageBox.No)
+        if close == QMessageBox.Yes:
+            e.accept()
+        else:
+            e.ignore()
+        '''
+    

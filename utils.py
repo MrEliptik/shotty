@@ -1,6 +1,13 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidget, QMenu, QFileDialog, QAction
-from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir
+from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir, QDateTime
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon
+import numpy as np
+import os
+import mss
+from pynotifier import Notification
+import platform
+
+_platform = platform.system()
 
 def mask_image(imgdata, imgtype='jpg', size=64):
     """Return a ``QPixmap`` from *imgdata* masked with a smooth circle.
@@ -61,3 +68,35 @@ def setMouseTracking(self, flag):
             recursive_set(child)
     QWidget.setMouseTracking(self, flag)
     recursive_set(self)
+
+def screenshot():
+    with mss.mss() as sct:
+        # Get raw pixels from the screen, save it to a Numpy array
+        im = np.array(sct.grab(sct.monitors[1]))
+    return im
+
+def getDateTime():
+    d = QDateTime.currentDateTime()
+    return d.toString("yyyy-MM-dd_hh-mm-ss")
+
+def getExtension(filename):
+    basename = os.path.basename(filename)
+    filename, file_ext = os.path.splitext(basename)
+    return file_ext
+
+def showNotification(title, msg):
+    if _platform == 'Windows':
+        icon = 'icons/shotty.ico'
+    else: 
+        icon = 'icons/shotty.png'
+
+    try:
+        Notification(
+            title=title,
+            description=msg,
+            icon_path=icon, # On Windows .ico is required, on Linux - .png
+            duration=5,                              # Duration in seconds
+            urgency=Notification.URGENCY_CRITICAL
+        ).send()
+    except Exception as e:
+        print(e)
