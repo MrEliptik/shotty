@@ -209,7 +209,7 @@ class ShottyFullscreen(QWidget):
             self.close()
             # User hit escape, we want to run hotkey hook again
             self.hotkeyThread.start()
-            self.hotkeyThread.signal.connect(test)
+            self.hotkeyThread.signal.connect(self.initUI)
 
     def mouseMoveEvent(self, e):
         self.line_x = e.x()
