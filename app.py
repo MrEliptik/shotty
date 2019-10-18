@@ -20,10 +20,10 @@ def main():
     
     shotty = ShottyFullscreen()
 
+    showNotification('Shotty', 'Running in the background')
+
     tray = QSystemTrayIcon()
     if tray.isSystemTrayAvailable():
-        showNotification('Shotty', 'Running in the background')
-
         tray.setIcon(QIcon('icons/shotty.png'))
         tray.setVisible(True)
         tray.show()
