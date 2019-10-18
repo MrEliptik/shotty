@@ -267,7 +267,13 @@ class ShottyFullscreen(QWidget):
             self.showFullscreenshotMenu(e)
 
     def setTextLabelPosition(self, x, y):
-        self.l_mousePos.move(x + 20, y)
+        # make sur zoom bubble stay inside the screen
+        if (x + 160) > self.width():
+            self.l_mousePos.move(x - 160 - 20, y)
+        elif (y + 160) > self.height():
+            self.l_mousePos.move(x + 20, y - 160)
+        else:
+            self.l_mousePos.move(x + 20, y)
 
     def saveScreenShot(self, filename, x1, y1, x2, y2, im="self"):
 
