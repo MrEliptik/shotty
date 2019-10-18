@@ -90,10 +90,13 @@ def showNotification(title, msg):
     else: 
         icon = 'icons/shotty.png'
 
-    Notification(
-        title=title,
-        description=msg,
-        icon_path=icon, # On Windows .ico is required, on Linux - .png
-        duration=5,                              # Duration in seconds
-        urgency=Notification.URGENCY_CRITICAL
-    ).send()
+    try:
+        Notification(
+            title=title,
+            description=msg,
+            icon_path=icon, # On Windows .ico is required, on Linux - .png
+            duration=5,                              # Duration in seconds
+            urgency=Notification.URGENCY_CRITICAL
+        ).send()
+    except Exception as e:
+        print(e)
