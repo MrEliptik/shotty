@@ -24,20 +24,6 @@ elif _platform == 'Darwin':
 else:
     print('[ERROR] {} not supported!'.format(_platform))
 
-def OnKeyboardEvent(event):
-    #global running
-    if _platform == 'Linux':
-        if event._data['detail'] == 107:
-            _globals.keyLogging = False
-            return False
-    elif _platform == 'Windows':
-        if event.KeyID == 44:
-            print("snapshot pressed")
-            _globals.keyLogging = False
-            # Ensures event will not propagate
-            return False
-    # Event will propagate normally
-    return True
 
 class overlay(QWidget):
     def __init__(self, parent=None):
@@ -99,21 +85,16 @@ class HotkeyThread(QThread):
             root.grab_key(107, X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
 
             # Create a loop to keep the application running
-            _globals.keyLogging = True
-            while _globals.keyLogging:
+            while True:
                 event = root.display.next_event()
-                OnKeyboardEvent(event)
+                self.OnKeyboardEvent(event)
                 time.sleep(0.1)
-            
-            # Close the grabber for the time 
-            # of the application
-            #TODO
 
         elif _platform == 'Windows': 
             # create a hook manager
             hm = HookManager()
             # watch for all mouse events
-            hm.KeyDown = OnKeyboardEvent
+            hm.KeyDown = self.OnKeyboardEvent
             # set the hook
             hm.HookKeyboard()
             # wait forever
@@ -126,9 +107,25 @@ class HotkeyThread(QThread):
             print('Closing HookManager')
             del hm
 
-        print("Finish hotkey")
-        # git clone done, now inform the main thread with the output
-        self.signal.emit('done')
+    def OnKeyboardEvent(self, event):
+        #global running
+        if _platform == 'Linux':
+            if event._data['detail'] == 107:
+                print("snapshot pressed")
+                if not _globals.displayed:
+                    self.signal.emit('screenshot')
+                #_globals.keyLogging = False
+                return False
+        elif _platform == 'Windows':
+            if event.KeyID == 44:
+                print("snapshot pressed")
+                if not _globals.displayed:
+                    self.signal.emit('screenshot')
+                #_globals.keyLogging = False
+                # Ensures event will not propagate
+                return False
+        # Event will propagate normally
+        return True
 
 class SaveImageThread(QThread):
     signal = pyqtSignal('PyQt_PyObject')
@@ -204,6 +201,7 @@ class ShottyFullscreen(QWidget):
         '''
         monitor = QDesktopWidget().screenGeometry(0)
         self.move(monitor.left(), monitor.top())
+        _globals.displayed = True
         self.showFullScreen()
 
     def keyPressEvent(self, e):
@@ -390,9 +388,11 @@ class ShottyFullscreen(QWidget):
         self.shottyAboutWindow = ShottyAboutWindow()
 
     def closeToBackground(self):
+        _globals.displayed = True
         self.close()
         _globals.running = False
-        self.hotkeyThread.start()
+        _globals.displayed = False
+        #self.hotkeyThread.start()
 
     def definitiveClose():
         sys.exit()
