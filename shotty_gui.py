@@ -11,6 +11,8 @@ from utils import mask_image, setMouseTracking, screenshot, showNotification, ge
 import _globals
 from about import ShottyAboutWindow
 
+import os; os.chdir(os.path.dirname(sys.argv[0]))
+
 _platform = platform.system()
 
 if _platform == 'Linux':

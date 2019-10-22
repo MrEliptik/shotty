@@ -2,10 +2,11 @@ from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QLabel, QDesktopWidg
 from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QPoint, QDateTime, QDir, QDateTime
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QBrush, QColor, QPen, QIcon
 import numpy as np
-import os
 import mss
 from pynotifier import Notification
 import platform
+import sys
+import os; os.chdir(os.path.dirname(sys.argv[0]))
 
 _platform = platform.system()
 

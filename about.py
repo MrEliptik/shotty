@@ -1,6 +1,8 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QGridLayout
 from PyQt5.QtGui import QPixmap, QPalette
 from PyQt5.QtCore import Qt
+import sys
+import os; os.chdir(os.path.dirname(sys.argv[0]))
 
 class ShottyAboutWindow(QWidget):
     def __init__(self):

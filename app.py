@@ -7,6 +7,8 @@ from shotty_gui import ShottyFullscreen, ShottyAboutWindow
 import _globals
 from utils import showNotification, screenshot, getDateTime
 
+import os; os.chdir(os.path.dirname(sys.argv[0]))
+
 def main(): 
 
     d = getDateTime()
