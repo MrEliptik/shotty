@@ -198,18 +198,17 @@ class ShottyFullscreen(QWidget):
 
         setMouseTracking(self, True)
 
+        '''
         self.setWindowFlags(
             Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
+        '''
         monitor = QDesktopWidget().screenGeometry(0)
         self.move(monitor.left(), monitor.top())
         self.showFullScreen()
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
-            self.close()
-            # User hit escape, we want to run hotkey hook again
-            self.hotkeyThread.start()
-            self.hotkeyThread.signal.connect(self.initUI)
+            self.closeToBackground()
 
     def mouseMoveEvent(self, e):
         self.line_x = e.x()
@@ -330,21 +329,20 @@ class ShottyFullscreen(QWidget):
         if action == save_crop_action:
             datetime = getDateTime()
             self.saveScreenShot(datetime,self.rect_x1, self.rect_y1, e.x(), e.y())
-            self.close()
+            self.closeToBackground()
         elif action == saveAs_crop_action:
             datetime = getDateTime()
             filename = self.saveFileDialog(datetime)
             if filename:
                 self.saveScreenShot(filename, self.rect_x1, self.rect_y1, e.x(), e.y())
-                self.close()
+                self.closeToBackground()
         elif action == clipboard_crop_action:
             self.copyToClipboard(self.rect_x1, self.rect_y1, e.x(), e.y())
-            self.close()
+            self.closeToBackground()
         elif action == cancel_action:
             return
         elif action == exit_action:
-            self.close()
-            _globals.running = False
+            self.closeToBackground()
 
     def showFullscreenshotMenu(self, e):
         menu = QMenu()
@@ -368,20 +366,19 @@ class ShottyFullscreen(QWidget):
         if action == save_full_action:
             datetime = getDateTime()
             self.saveScreenShot(datetime, -1, -1, -1, -1)
-            self.close()
+            self.closeToBackground()
         elif action == saveAs_full_action:
             datetime = getDateTime()
             filename = self.saveFileDialog(datetime)
             if filename:
                 self.saveScreenShot(filename, -1, -1, -1, -1)
-                self.close()
+                self.closeToBackground()
         elif action == clipboard_full_action:
             self.copyToClipboard(-1, -1, -1, -1)
         elif action == cancel_action:
             return
         elif action == exit_action:
-            self.close()
-            _globals.running = False
+            self.closeToBackground()
         
     def saveFileDialog(self, default):
         filename, ext = QFileDialog.getSaveFileName(
@@ -391,6 +388,14 @@ class ShottyFullscreen(QWidget):
 
     def showShottyAboutWindow(self):
         self.shottyAboutWindow = ShottyAboutWindow()
+
+    def closeToBackground(self):
+        self.close()
+        _globals.running = False
+        self.hotkeyThread.start()
+
+    def definitiveClose():
+        sys.exit()
 
     # Unused
     def closeEvent(self, e):
