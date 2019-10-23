@@ -38,3 +38,5 @@ If you get the error:
     [Errno 2] No such file or directory: 'notify-send': 'notify-send'
 try:
     sudo apt-get --reinstall install libnotify-bin notify-osd
+    
+<a href="https://www.buymeacoffee.com/mreliptik" target="_blank"><img src="https://bmc-cdn.nyc3.digitaloceanspaces.com/BMC-button-images/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
