@@ -38,5 +38,10 @@ If you get the error:
     [Errno 2] No such file or directory: 'notify-send': 'notify-send'
 try:
     sudo apt-get --reinstall install libnotify-bin notify-osd
-    
+
+## Author
+
+- Victor Meunier - victormeunier.dev@gmail.com
+
+Want to support me? Buy me a coffee!
 <a href="https://www.buymeacoffee.com/mreliptik" target="_blank"><img src="https://bmc-cdn.nyc3.digitaloceanspaces.com/BMC-button-images/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;" ></a>
