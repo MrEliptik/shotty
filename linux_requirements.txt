@@ -1,0 +1,17 @@
+altgraph==0.16.1
+autopep8==1.4.4
+Eel==0.10.4
+future==0.18.1
+gevent==1.4.0
+gevent-websocket==0.10.1
+greenlet==0.4.15
+mss==4.0.3
+numpy==1.17.2
+py-notifier==0.1.0
+pycodestyle==2.5.0
+PyInstaller==3.5
+PyQt5==5.13.1
+PyQt5-sip==4.19.19
+six==1.12.0
+whichcraft==0.6.1
+xlib==0.21

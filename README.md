@@ -43,7 +43,13 @@ Get pyHook for your python version here:
 
 ### Python
 
-    pip install requirements.txt
+Linux
+
+    pip install linux-requirements.txt
+
+Windows
+
+    Pip install windows-requirements.txt
 
 ## Troubleshoot ⚠️
 
