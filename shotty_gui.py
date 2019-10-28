@@ -7,11 +7,20 @@ import sys
 import time
 import platform
 from threading import Thread
-from utils import mask_image, setMouseTracking, screenshot, showNotification, getExtension, getDateTime
-import _globals
+from utils import mask_image, setMouseTracking, screenshot, showNotification, getExtension, getDateTime, removeAlpha
 from about import ShottyAboutWindow
 
 import os; os.chdir(os.path.dirname(sys.argv[0]))
+
+ZOOM_DIAMETER           = 160
+ZOOM_RADIUS             = ZOOM_DIAMETER/2
+CROSSHAIR_GAP           = 15
+ZOOM_Y_OFFSET           = 35
+ZOOM_X_OFFSET           = 20
+PRINT_KEY_ID_LINUX      = 107
+PRINT_KEY_ID_WIN        = 44
+
+displayed = False
 
 _platform = platform.system()
 
@@ -84,7 +93,7 @@ class HotkeyThread(QThread):
             # Get root screen
             root = Display().screen().root
             # Add key grabber for 'print'
-            root.grab_key(107, X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
+            root.grab_key(PRINT_KEY_ID_LINUX, X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
 
             # Create a loop to keep the application running
             while True:
@@ -100,8 +109,7 @@ class HotkeyThread(QThread):
             # set the hook
             hm.HookKeyboard()
             # wait forever
-            _globals.keyLogging = True
-            while _globals.keyLogging:
+            while True:
                 pc.PumpWaitingMessages()
                 time.sleep(0.1)
                 #print('Hotkey thread waiting..')
@@ -110,20 +118,17 @@ class HotkeyThread(QThread):
             del hm
 
     def OnKeyboardEvent(self, event):
-        #global running
         if _platform == 'Linux':
-            if event._data['detail'] == 107:
+            if event._data['detail'] == PRINT_KEY_ID_LINUX:
                 print("snapshot pressed")
-                if not _globals.displayed:
+                if not displayed:
                     self.signal.emit('screenshot')
-                #_globals.keyLogging = False
                 return False
         elif _platform == 'Windows':
-            if event.KeyID == 44:
+            if event.KeyID == PRINT_KEY_ID_WIN:
                 print("snapshot pressed")
-                if not _globals.displayed:
+                if not displayed:
                     self.signal.emit('screenshot')
-                #_globals.keyLogging = False
                 # Ensures event will not propagate
                 return False
         # Event will propagate normally
@@ -153,6 +158,8 @@ class ShottyFullscreen(QWidget):
         self.hotkeyThread.signal.connect(self.initUI)
 
     def initUI(self):
+        global displayed
+
         QSound.play("sounds/shutter.wav")
 
         self.pressed = False
@@ -170,16 +177,12 @@ class ShottyFullscreen(QWidget):
 
         self.setTextLabelPosition(0, 0)
         setMouseTracking(self, True)
-        self.rect_x1 = 0
-        self.rect_y1 = 0
-        self.rect_x2 = 0
-        self.rect_y2 = 0
-        self.line_x = 0
-        self.line_y = 0
+        self.rect_x1 = self.rect_y1 = self.rect_x2 = \
+        self.rect_y2 = self.line_x = self.line_y = 0
      
         im = screenshot()
         # Remove alpha
-        self.im = im[:, :, :3].copy()
+        self.im = removeAlpha(im)
 
         h, w, c = self.im.shape
         print('New shape: {},{},{}'.format(h, w, c))
@@ -197,13 +200,10 @@ class ShottyFullscreen(QWidget):
 
         setMouseTracking(self, True)
 
-        '''
-        self.setWindowFlags(
-            Qt.WindowCloseButtonHint | Qt.WindowType_Mask)
-        '''
-        monitor = QDesktopWidget().screenGeometry(0)
+        monitor = QDesktopWidget().screenGeometry(-1)
+
         self.move(monitor.left(), monitor.top())
-        _globals.displayed = True
+        displayed = True
         self.showFullScreen()
 
     def keyPressEvent(self, e):
@@ -217,28 +217,27 @@ class ShottyFullscreen(QWidget):
         zoom = self.im[e.y()-10:e.y()+10, e.x()-10:e.x()+10, :].copy()
         h, w, _ = zoom.shape
         qPixZoom = mask_image(zoom)
-        qPixZoom = qPixZoom.scaled(160, 160, Qt.KeepAspectRatio)
+        qPixZoom = qPixZoom.scaled(ZOOM_DIAMETER, ZOOM_DIAMETER, Qt.KeepAspectRatio)
 
         painter = QPainter()
         painter.begin(qPixZoom)
         painter.setPen(QPen(Qt.green, 4, Qt.DotLine))
         # Horizontal line
-        painter.drawLine(0, 80, 65, 80)
-        painter.drawLine(95, 80, 160, 80)
+        painter.drawLine(0, ZOOM_RADIUS, ZOOM_RADIUS - CROSSHAIR_GAP, ZOOM_RADIUS)
+        painter.drawLine(ZOOM_RADIUS + CROSSHAIR_GAP, ZOOM_RADIUS, ZOOM_DIAMETER, ZOOM_RADIUS)
         # Vertical line
-        painter.drawLine(80, 0, 80, 65)
-        painter.drawLine(80, 95, 80, 160)
+        painter.drawLine(ZOOM_RADIUS, 0, ZOOM_RADIUS, ZOOM_RADIUS - CROSSHAIR_GAP)
+        painter.drawLine(ZOOM_RADIUS, ZOOM_RADIUS + CROSSHAIR_GAP, ZOOM_RADIUS, ZOOM_DIAMETER)
         painter.end()
         self.l_mousePos.setPixmap(qPixZoom)
-        self.l_mousePos.resize(160, 160)
+        self.l_mousePos.resize(ZOOM_DIAMETER, ZOOM_DIAMETER)
 
-        # print(e.x(), e.y())
         self.setTextLabelPosition(e.x(), e.y())
         QWidget.mouseMoveEvent(self, e)
         self.overlay.setLineCoords(e.x(), e.y())
         if self.pressed:
             self.overlay.setCoords(self.rect_x1, self.rect_y1, e.x(), e.y())
-            self.l_dimensions.move(self.rect_x1, self.rect_y1 - 35)
+            self.l_dimensions.move(self.rect_x1, self.rect_y1 - ZOOM_Y_OFFSET)
             self.l_dimensions.resize(e.x(), 50)
             self.l_dimensions.setText('W: %dpx H: %dpx' % (abs(e.x() - self.rect_x1), abs(e.y() - self.rect_y1)))
         self.overlay.update()
@@ -253,10 +252,7 @@ class ShottyFullscreen(QWidget):
         if e.button() == Qt.LeftButton:
             self.showCroppedMenu(e)
             self.pressed = False
-            self.rect_x1 = 0
-            self.rect_y1 = 0
-            self.rect_x2 = 0
-            self.rect_y2 = 0
+            self.rect_x1 = self.rect_y1 = self.rect_x2 = self.rect_y2 = 0
             self.overlay.setCoords(
                 self.rect_x1, self.rect_y1, self.rect_x2, self.rect_y2)
             self.overlay.update()
@@ -267,12 +263,12 @@ class ShottyFullscreen(QWidget):
 
     def setTextLabelPosition(self, x, y):
         # make sur zoom bubble stay inside the screen
-        if (x + 160) > self.width():
-            self.l_mousePos.move(x - 160 - 20, y)
-        elif (y + 160) > self.height():
-            self.l_mousePos.move(x + 20, y - 160)
+        if (x + ZOOM_DIAMETER) > self.width():
+            self.l_mousePos.move(x - ZOOM_DIAMETER - ZOOM_X_OFFSET, y)
+        elif (y + ZOOM_DIAMETER) > self.height():
+            self.l_mousePos.move(x + ZOOM_X_OFFSET, y - ZOOM_DIAMETER)
         else:
-            self.l_mousePos.move(x + 20, y)
+            self.l_mousePos.move(x + ZOOM_X_OFFSET, y)
 
     def saveScreenShot(self, filename, x1, y1, x2, y2, im="self"):
 
@@ -390,27 +386,11 @@ class ShottyFullscreen(QWidget):
         self.shottyAboutWindow = ShottyAboutWindow()
 
     def closeToBackground(self):
-        _globals.displayed = True
+        global displayed
+
         self.close()
-        _globals.running = False
-        _globals.displayed = False
-        #self.hotkeyThread.start()
+        displayed = False
 
     def definitiveClose():
         sys.exit()
-
-    # Unused
-    def closeEvent(self, e):
-
-        # Unused
-        '''
-        close = QMessageBox.question(self,
-                                        "Exit",
-                                        "Are you sure you want to exit?",
-                                        QMessageBox.Yes | QMessageBox.No)
-        if close == QMessageBox.Yes:
-            e.accept()
-        else:
-            e.ignore()
-        '''
     

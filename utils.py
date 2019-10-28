@@ -76,6 +76,9 @@ def screenshot():
         im = np.array(sct.grab(sct.monitors[1]))
     return im
 
+def removeAlpha(im):
+    return im[:, :, :3].copy()
+
 def getDateTime():
     d = QDateTime.currentDateTime()
     return d.toString("yyyy-MM-dd_hh-mm-ss")

@@ -9,7 +9,7 @@ class ShottyAboutWindow(QWidget):
         super().__init__()
         self.title = 'Shotty - Cross platform screenshot app'
         self.height = 300
-        self.width = 250
+        self.width = 350
         size = QApplication.primaryScreen().size()
         self.top = size.height() / 2
         self.left = size.width() / 2
@@ -35,7 +35,7 @@ class ShottyAboutWindow(QWidget):
         self.l_github.setText("<a href=\"https://github.com/MrEliptik/shotty\" />GitHub</a>")
         self.l_github.setOpenExternalLinks(True)
 
-        self.l_credits =QLabel()
+        self.l_credits = QLabel()
 
         #self.vbx = QVBoxLayout(self)
         #self.vbx.addWidget(self.l_github)

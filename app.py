@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import QApplication, QMenu, QAction, QSystemTrayIcon
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QObject, pyqtSignal, QDateTime
 from shotty_gui import ShottyFullscreen, ShottyAboutWindow
-import _globals
 from utils import showNotification, screenshot, getDateTime
 
 import os; os.chdir(os.path.dirname(sys.argv[0]))
