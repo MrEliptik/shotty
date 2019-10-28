@@ -33,6 +33,12 @@ Press 'Print', select your area, rename, and hit save!
 
 ![icon tray menu](readme/icon_tray_menu_fullscreenshot.gif)
 
+## How to run
+
+See [requirements](#requirements) for python packages. With python >= 3.6, run 
+
+    python app.pyw
+
 ## Requirements
 
 ### Windows:
