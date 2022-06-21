@@ -6,7 +6,7 @@ gevent==1.4.0
 gevent-websocket==0.10.1
 greenlet==0.4.15
 mss==4.0.3
-numpy==1.17.2
+numpy==1.22.0
 py-notifier==0.1.0
 pycodestyle==2.5.0
 PyInstaller==3.5
